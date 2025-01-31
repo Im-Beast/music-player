@@ -1,6 +1,5 @@
 import type { ElectronViteConfig } from "electron-vite";
 import path from "path";
-import legacy from "@vitejs/plugin-legacy";
 import vue from "@vitejs/plugin-vue";
 
 export default {
@@ -18,7 +17,7 @@ export default {
 			emptyOutDir: false,
 			outDir: "./dist/electron/preload",
 			lib: {
-				entry: "./electron/preload.cts",
+				entry: "./electron/preload.cjs",
 			},
 			rollupOptions: {
 				output: {
@@ -28,7 +27,7 @@ export default {
 		},
 	},
 	renderer: {
-		plugins: [vue(), legacy()],
+		plugins: [vue()],
 		root: ".",
 		build: {
 			emptyOutDir: false,

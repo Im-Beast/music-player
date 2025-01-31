@@ -1,19 +1,20 @@
 <template>
 	<ion-item button :detail="false" @click.self="modalOpen = true" v-if="currentSong?.id">
 		<ion-thumbnail slot="start">
-			<img :src="currentSong.artworkUrl" :alt="`Artwork for song '${currentSong.name}'`" />
+			<song-img :src="currentSong.artwork" :alt="`Artwork for song '${currentSong.title}'`" />
 		</ion-thumbnail>
 
 		<ion-label class="ion-text-nowrap">
-			{{ currentSong.name }}
+			{{ currentSong.title }}
 		</ion-label>
 
 		<ion-buttons slot="end">
 			<ion-button :disabled="!hasPrevious" @click="musicPlayer.skipPrevious">
 				<ion-icon :icon="skipPreviousIcon" slot="icon-only" />
 			</ion-button>
-			<ion-button @click="musicPlayer.togglePlay">
-				<ion-icon :icon="playing ? pauseIcon : playIcon" slot="icon-only" />
+			<ion-button @click="musicPlayer.togglePlay" :disabled="loading">
+				<ion-spinner v-if="loading" />
+				<ion-icon v-else :icon="playing ? pauseIcon : playIcon" slot="icon-only" />
 			</ion-button>
 			<ion-button :disabled="!hasNext" @click="musicPlayer.skipNext">
 				<ion-icon :icon="skipNextIcon" slot="icon-only" />
@@ -49,13 +50,15 @@ import {
 	IonButtons,
 	IonIcon,
 	IonModal,
+	IonSpinner,
 } from "@ionic/vue";
 
 import { useMusicPlayer } from "@/stores/music-player";
 import MusicPlayer from "@/components/MusicPlayer.vue";
+import SongImg from "@/components/SongImg.vue";
 
 const musicPlayer = useMusicPlayer();
-const { playing, currentSong, hasPrevious, hasNext } = storeToRefs(musicPlayer);
+const { loading, playing, currentSong, hasPrevious, hasNext } = storeToRefs(musicPlayer);
 
 const modalOpen = ref(false);
 </script>

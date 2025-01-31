@@ -9,10 +9,8 @@
 				<ion-toolbar>
 					<ion-searchbar
 						id="searchbar"
-						:class="{
-							searching: isSearching,
-						}"
-						:debounce="250"
+						:class="{ searching: isSearching }"
+						:debounce="150"
 						v-model="search"
 						cancel-button-text="Cancel"
 						show-cancel-button="focus"
@@ -24,6 +22,8 @@
 						@ion-input="updateSearchHints"
 						@keyup.enter="searchFor($event.target.value)"
 					/>
+
+					<ion-progress-bar v-if="isLoading" type="indeterminate" />
 				</ion-toolbar>
 			</template>
 		</app-header>
@@ -47,7 +47,7 @@
 			<template v-if="!isSearching && search">
 				<ion-list id="search-results">
 					<ion-list>
-						<MusicKitSongItem v-for="song in songs" :key="song.id" :song />
+						<song-item v-for="song in songs" :key="getUniqueSongId(song)" :song />
 					</ion-list>
 				</ion-list>
 			</template>
@@ -68,62 +68,38 @@ import {
 	IonSearchbar,
 	IonLabel,
 	IonIcon,
+	IonProgressBar,
 } from "@ionic/vue";
 import { search as searchIcon } from "ionicons/icons";
 import AppHeader from "@/components/AppHeader.vue";
 import AppFooter from "@/components/AppFooter.vue";
-import { useMusicKit } from "@/stores/musickit";
 import { ref } from "vue";
-import MusicKitSongItem from "@/components/SongItem/MusicKitSongItem.vue";
+import { useMusicPlayer, type AnySong } from "@/stores/music-player";
+import SongItem from "@/components/SongItem.vue";
+import { getUniqueSongId } from "@/utils/songs";
 
-const musicKit = useMusicKit();
+const musicPlayer = useMusicPlayer();
 const search = ref("");
 const isSearching = ref(false);
 const searchSuggestions = ref<string[]>([]);
 
-const songs = ref<MusicKit.Songs[]>([]);
+const songs = ref<AnySong[]>([]);
+const isLoading = ref(false);
 
 async function updateSearchHints(): Promise<void> {
-	await musicKit.withMusic(async (music) => {
-		if (!search.value) {
-			searchSuggestions.value = [];
-			return;
-		}
-
-		const response = await music.api.music<{ results: { terms: string[] } }>(
-			"/v1/catalog/{{storefrontId}}/search/hints",
-			{ term: search.value.replaceAll(" ", "+") },
-		);
-
-		const { terms } = response.data.results;
-		searchSuggestions.value = terms;
-	});
+	searchSuggestions.value = await musicPlayer.searchHints(search.value);
 }
 
 async function searchFor(term: string): Promise<void> {
-	console.log("Searching for", term);
+	isLoading.value = true;
 	search.value = term;
 	isSearching.value = false;
 	await updateSearchResults();
+	isLoading.value = false;
 }
 
 async function updateSearchResults(): Promise<void> {
-	await musicKit.withMusic(async (music) => {
-		if (!search.value) {
-			return;
-		}
-
-		const response = await music.api.music<MusicKit.SearchResponse, MusicKit.CatalogSearchQuery>(
-			"/v1/catalog/{{storefrontId}}/search",
-			{
-				term: search.value.replaceAll(" ", "+"),
-				types: ["songs"],
-				limit: 25,
-			},
-		);
-
-		songs.value = (response?.data?.results?.songs?.data ?? []).filter((song) => song.attributes);
-	});
+	songs.value = await musicPlayer.searchSongs(search.value);
 }
 </script>
 

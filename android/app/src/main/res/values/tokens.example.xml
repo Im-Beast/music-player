@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="developer_token">Your_token_here</string>
+    <!-- <string name="developer_token">Your_token_here</string> -->
 </resources>

@@ -28,7 +28,7 @@ declare global {
 			 */
 			limit?: number;
 			/** The next page or group of objects to fetch. */
-			offset?: string;
+			offset?: number;
 			/** The list of the types of resources to include in the results. */
 			types: CatalogSearchType[];
 			/** A list of modifications to apply to the request. */

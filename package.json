@@ -1,5 +1,6 @@
 {
 	"name": "music-player",
+	"description": "music player",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
@@ -26,6 +27,7 @@
 		"@capacitor/android": "6.2.0",
 		"@capacitor/app": "6.0.2",
 		"@capacitor/core": "6.2.0",
+		"@capacitor/filesystem": "^6.0.3",
 		"@capacitor/haptics": "6.0.2",
 		"@capacitor/ios": "6.2.0",
 		"@capacitor/keyboard": "6.0.3",
@@ -33,10 +35,16 @@
 		"@capacitor/status-bar": "6.0.2",
 		"@ionic/vue": "^8.4.1",
 		"@ionic/vue-router": "^8.4.1",
+		"@vueuse/components": "^12.5.0",
 		"@vueuse/core": "^12.4.0",
+		"@vueuse/integrations": "^12.5.0",
+		"capacitor-music-controls-plugin": "^6.1.0",
 		"electron-serve": "^2.1.1",
+		"fuse.js": "^7.0.0",
 		"handlebars": "^4.7.8",
+		"idb-keyval": "^6.2.1",
 		"ionicons": "^7.4.0",
+		"music-metadata": "^10.7.0",
 		"pinia": "^2.3.0",
 		"vue": "^3.5.13",
 		"vue-router": "^4.5.0"
@@ -44,7 +52,6 @@
 	"devDependencies": {
 		"@capacitor/cli": "6.2.0",
 		"@types/node": "^22.10.7",
-		"@vitejs/plugin-legacy": "^5.4.3",
 		"@vitejs/plugin-vue": "^4.6.2",
 		"@vue/eslint-config-typescript": "^12.0.0",
 		"@vue/test-utils": "^2.4.6",
@@ -61,6 +68,5 @@
 		"vite": "~5.2.14",
 		"vitest": "^0.34.6",
 		"vue-tsc": "^2.2.0"
-	},
-	"description": "An Ionic project"
+	}
 }

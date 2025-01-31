@@ -1,7 +1,11 @@
 import { app, components, BrowserWindow, ipcMain } from "electron";
 import electronServe from "electron-serve";
+
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import fs from "node:fs/promises";
+
 import { authorizeMusicKit } from "./musickit/auth";
-import { fileURLToPath } from "url";
 
 const loadUrl = electronServe({
 	directory: fileURLToPath(new URL("../renderer/", import.meta.url)),
@@ -24,7 +28,7 @@ async function createWindow() {
 	mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
 		const CSP = `
 		default-src 'self' blob: 'unsafe-inline' https://*.apple.com;
-		img-src 'self' blob: *;
+		img-src 'self' blob: data: *;
 		`;
 
 		callback({
@@ -43,6 +47,18 @@ app.whenReady().then(async () => {
 	await createWindow();
 
 	ipcMain.handle("musickit:authorize", () => authorizeMusicKit());
+
+	ipcMain.handle("musicplayer:path", () => app.getPath("music"));
+	ipcMain.handle("musicplayer:read_file", async (_, path: string): Promise<Uint8Array> => {
+		return await fs.readFile(path);
+	});
+	ipcMain.handle("musicplayer:traverse_dir", async (_, path: string): Promise<string[]> => {
+		const paths = [];
+		for (const relativePath of await fs.readdir(path, { recursive: true })) {
+			paths.push(join(path, relativePath));
+		}
+		return paths;
+	});
 
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();

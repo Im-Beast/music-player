@@ -1,12 +1,6 @@
 import { WebPlugin } from "@capacitor/core";
 import type { MusicKitAuthorizationPlugin } from "../MusicKitAuthorization";
 
-declare global {
-	namespace ElectronMusicPlayer {
-		const authorizeMusicKit: undefined | (() => Promise<string>);
-	}
-}
-
 // Web implementation of WebKitAuthorization
 export class MusicKitAuthorization extends WebPlugin implements MusicKitAuthorizationPlugin {
 	async authorize(): Promise<{ developerToken: string; musicUserToken: string }> {

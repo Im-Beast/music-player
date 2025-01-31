@@ -12,6 +12,7 @@ interface MusicKitPreferences {
  * Service which streamlines the MusicKit authorization
  */
 export class MusicKitAuthorizationService extends Service {
+	logName = "MusicKitAuthorizationService";
 	logColor = "#ff7080";
 
 	constructor() {
@@ -105,9 +106,7 @@ export class MusicKitAuthorizationService extends Service {
 
 	/** Remove saved MusicKit tokens */
 	async #forget(): Promise<void> {
-		await Preferences.remove({
-			key: "MusicKit",
-		});
+		await Preferences.remove({ key: "MusicKit" });
 	}
 
 	/** Save MusicKit tokens */

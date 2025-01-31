@@ -1,148 +1,360 @@
 import { defineStore } from "pinia";
-import { computed, readonly, ref, watch } from "vue";
-import { useStorage } from "@vueuse/core";
+import { computed, Ref, ref, watch } from "vue";
+import { useLocalStorage, useStorage, watchDebounced } from "@vueuse/core";
+import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval";
 
-import { AnySong } from "@/types/music-player";
-import { useMusicKit } from "./musickit";
+import { LocalMusicPlayerService } from "@/services/MusicPlayer/LocalMusicPlayerService";
+import { MusicKitMusicPlayerService } from "@/services/MusicPlayer/MusicKitMusicPlayerService";
+import { MusicPlayerService } from "@/services/MusicPlayer/MusicPlayerService";
+import { getPlatform } from "@/utils/os";
+import { useLocalImages } from "./local-images";
+
+declare global {
+	namespace ElectronMusicPlayer {
+		// musickit:
+		const authorizeMusicKit: undefined | (() => Promise<string>);
+
+		// musicplayer:
+		const getMusicPath: () => Promise<string>;
+		const readFile: (path: string) => Promise<Uint8Array>;
+		const traverseDirectory: (path: string) => Promise<string[]>;
+	}
+}
+
+export type SongImage = { id: string; url?: never } | { id?: never; url: string };
+export interface Song<Type extends string, Data = {}> {
+	type: Type;
+
+	id: string;
+	title?: string;
+	artist?: string;
+	album?: string;
+	duration?: number;
+	genre?: string;
+
+	artwork?: SongImage;
+	style: {
+		fgColor: string;
+		bgColor: string;
+		bgGradient: string;
+	};
+
+	data: Data;
+}
+
+export type MusicKitSong = Song<"musickit">;
+export type LocalSong = Song<"local", { path: string }>;
+
+export type AnySong = MusicKitSong | LocalSong;
 
 export const useMusicPlayer = defineStore("MusicPlayer", () => {
-	const musicKit = useMusicKit();
+	const localImages = useLocalImages();
 
-	const playing = ref(false);
-	const currentTime = ref(0);
-	const duration = ref(1);
-	const progress = computed({
-		get: () => currentTime.value / duration.value,
-		set(progress) {
-			musicKit.music!.seekToTime(progress * duration.value);
+	const musicPlayerServices: Record<string, MusicPlayerService> = {
+		local: new LocalMusicPlayerService(),
+	};
+
+	function addMusicPlayerService(type: string, service: MusicPlayerService): void {
+		musicPlayerServices[type] = service;
+	}
+
+	function getMusicPlayerService(type: string): MusicPlayerService | void {
+		return musicPlayerServices[type];
+	}
+
+	function removeMusicPlayerService(type: string): void {
+		delete musicPlayerServices[type];
+	}
+
+	const withAllServices = <T>(callback: (service: MusicPlayerService) => T) =>
+		Promise.all(Object.values(musicPlayerServices).map(callback));
+
+	const queuedSongs = useIDBKeyval<AnySong[]>("queuedSongs", []);
+	const queueIndex = useStorage("queueIndex", 0);
+	const currentSong = computed<AnySong | undefined>(() => queuedSongs.data.value[queueIndex.value]);
+
+	const currentService = computed<MusicPlayerService | undefined>(() => {
+		const song = currentSong.value;
+		return song && musicPlayerServices[song.type];
+	});
+
+	let autoPlay = false;
+	watchDebounced(
+		[currentSong, currentService],
+		async ([song, service]) => {
+			if (!service) return;
+
+			if (song) {
+				await service.changeSong(song!);
+				if (autoPlay) {
+					await service.play();
+				} else {
+					await service.initialize();
+					autoPlay = true;
+				}
+			} else {
+				await MusicPlayerService.stopServices();
+			}
+		},
+		{ debounce: 500 },
+	);
+
+	const loadingStack = ref<boolean[]>([]);
+	const loading = computed({
+		get() {
+			return loadingStack.value.length > 0;
+		},
+
+		set(value) {
+			if (value) {
+				loadingStack.value.push(true);
+			} else {
+				loadingStack.value.pop();
+			}
 		},
 	});
-	const timeRemaining = computed(() => duration.value * (1 - progress.value));
-	const loading = ref(false);
-	// NOTE: volume control does not work on iOS due to Apple putting arbitrary restrictions around setting app volume
-	const volume = ref(1);
 
-	watch(volume, (volume) => {
-		musicKit.music!.volume = volume;
+	const playing = ref(false);
+	const volume = useLocalStorage("volume", 1);
+
+	watch(volume, async (volume) => await withAllServices((service) => service.setVolume(volume)), {
+		immediate: true,
 	});
 
-	const queuedSongs = useStorage<AnySong[]>("queuedSongs", []);
-	const queueIndex = useStorage("queueIndex", 0);
+	const time = ref(0);
+	const duration = ref(1);
+	const progress = computed({
+		get: () => time.value / duration.value,
+		set: (progress) => {
+			currentService.value?.seekToTime(progress * duration.value);
+		},
+	});
+
+	watch([time, duration], async ([time, duration]) => {
+		if (Math.floor(duration - time) === 0) await skipNext();
+	});
 
 	const hasPrevious = computed(() => queueIndex.value > 0);
-	const hasNext = computed(() => queuedSongs.value.length > queueIndex.value + 1);
+	const hasNext = computed(() => queuedSongs.data.value.length > queueIndex.value + 1);
 
-	musicKit.withMusic(async (music) => {
-		music.repeatMode = MusicKit.PlayerRepeatMode.none;
+	const timeRemaining = computed(() => duration.value * (1 - progress.value));
 
-		music.addEventListener("mediaCanPlay", () => {
-			duration.value = music.currentPlaybackDuration;
-			currentTime.value = music.currentPlaybackTime;
-			loading.value = false;
-		});
-
-		music.addEventListener("playbackTimeDidChange", () => {
-			currentTime.value = music.currentPlaybackTime;
-			if (currentTime.value === duration.value) skipNext();
-		});
-	});
-
-	async function play(): Promise<void> {
-		const song = currentSong.value;
-		if (!song) {
-			console.warn("Tried to play a song thats undefined");
-			return;
-		}
-
-		switch (song.type) {
-			case "musickit": {
-				const music = musicKit.music!;
-				if (music.nowPlayingItem?.id !== song.id) {
-					loading.value = true;
-					await music.setQueue({ song: song.id });
-				}
-				await music.play();
-				playing.value = true;
-				break;
-			}
-			default:
-				throw new Error("unimplemented");
-		}
+	function addToQueue(song: AnySong, index = queuedSongs.data.value.length): void {
+		queuedSongs.data.value.splice(index, 0, song);
 	}
 
-	async function pause(): Promise<void> {
-		const song = currentSong.value;
-		if (!song) {
-			console.warn("Tried to play a song thats undefined");
-			return;
-		}
-
-		console.info("Trying to pause", song);
-
-		switch (song.type) {
-			case "musickit": {
-				const music = musicKit.music!;
-				await music.pause();
-				playing.value = false;
-				break;
-			}
-			default:
-				throw new Error("unimplemented");
-		}
-	}
-
-	function togglePlay(): void {
-		if (playing.value) pause();
-		else play();
-	}
-
-	function add(song: AnySong, index = queuedSongs.value.length): void {
-		queuedSongs.value.splice(index, 0, song);
-	}
-
-	function remove(index: number): void {
-		queuedSongs.value.splice(index, 1);
+	function removeFromQueue(index: number): void {
+		queuedSongs.data.value.splice(index, 1);
 		if (index < queueIndex.value) {
-			queueIndex.value = queueIndex.value - 1;
+			queueIndex.value -= 1;
 		}
 	}
 
-	async function skipNext(): Promise<void> {
-		if (!hasNext.value) return;
-		queueIndex.value++;
-		await play();
+	function moveQueueItem(from: number, to: number): void {
+		// Move item in the array
+		const [item] = queuedSongs.data.value.splice(from, 1);
+		queuedSongs.data.value.splice(to, 0, item);
+
+		// Then make sure that currently playing song is still the one playing
+		if (from > queueIndex.value && to <= queueIndex.value) {
+			queueIndex.value += 1;
+		} else if (from < queueIndex.value && to >= queueIndex.value) {
+			queueIndex.value -= 1;
+		} else if (from === queueIndex.value) {
+			queueIndex.value = to;
+		}
 	}
 
-	async function skipPrevious(): Promise<void> {
+	function play() {
+		return currentService.value?.play();
+	}
+
+	function pause() {
+		return currentService.value?.pause();
+	}
+
+	function togglePlay() {
+		return currentService.value?.togglePlay();
+	}
+
+	async function skipPrevious() {
 		if (!hasPrevious.value) return;
 		queueIndex.value--;
-		await play();
 	}
 
-	const currentSong = computed<AnySong | undefined>(() => queuedSongs.value[queueIndex.value]);
+	async function skipNext() {
+		if (!hasNext.value) return;
+		queueIndex.value++;
+	}
+
+	async function searchHints(term: string): Promise<string[]> {
+		const allHints = await withAllServices((service) => service.searchHints(term));
+		return allHints.flat();
+	}
+
+	async function searchSongs(term: string, offset = 0): Promise<AnySong[]> {
+		const allResults = await withAllServices((service) => service.searchSongs(term, offset));
+		return allResults.flat();
+	}
+
+	async function librarySongs(offset = 0): Promise<AnySong[]> {
+		const allSongs = await withAllServices((service) => service.librarySongs(offset));
+		return allSongs.flat();
+	}
+
+	async function refreshServices(): Promise<void> {
+		await withAllServices((service) => service.refresh());
+	}
+
+	//#region System Music Controls
+	// Android's WebView doesn't support MediaSession
+	if (getPlatform() === "android") {
+		import("capacitor-music-controls-plugin").then(({ CapacitorMusicControls }) => {
+			let musicControlsExist = false;
+			watch(
+				[hasPrevious, hasNext, currentSong],
+				async ([hasPrev, hasNext, currentSong]) => {
+					if (musicControlsExist) {
+						musicControlsExist = false;
+						await CapacitorMusicControls.destroy();
+					}
+
+					await CapacitorMusicControls.create({
+						isPlaying: false,
+						hasPrev,
+						hasSkipBackward: false,
+						hasNext,
+						hasSkipForward: false,
+
+						track: currentSong?.title ?? "",
+						artist: currentSong?.artist ?? "",
+						album: currentSong?.album ?? "",
+
+						// FIXME: Local artworks
+						cover: (await localImages.getSongImageUrl(currentSong?.artwork)) ?? "",
+
+						hasClose: false,
+						dismissable: false,
+
+						hasScrubbing: true,
+						elapsed: 0,
+						duration: currentSong?.duration ?? 0,
+
+						playIcon: "media_play",
+						pauseIcon: "media_pause",
+						prevIcon: "media_prev",
+						nextIcon: "media_next",
+						closeIcon: "media_close",
+						notificationIcon: "notification",
+					});
+					musicControlsExist = true;
+				},
+				{ immediate: true },
+			);
+
+			watch([playing, time], async ([isPlaying, elapsed]) => {
+				if (!musicControlsExist) return;
+				await CapacitorMusicControls.updateElapsed({ isPlaying, elapsed });
+			});
+
+			document.addEventListener("controlsNotification", async (event: Event) => {
+				if (!("message" in event)) return;
+
+				switch (event.message) {
+					case "music-controls-play":
+						await play();
+						break;
+					case "music-controls-pause":
+						await pause();
+						break;
+					case "music-controls-next":
+						await skipNext();
+						break;
+					case "music-controls-previous":
+						await skipPrevious();
+						break;
+				}
+			});
+		});
+	}
+
+	// iOS, Web and Electron
+	if (getPlatform() !== "android" && "mediaSession" in navigator) {
+		// These action handlers MUST also be added after audio elements emitted "playing" event
+		// Otherwise WKWebView on iOS does not respect the action handlers and shows the seek buttons
+		addMusicSessionActionHandlers();
+
+		watch([currentSong], async ([song]) => {
+			if (!song) {
+				navigator.mediaSession.metadata = null;
+				navigator.mediaSession.playbackState = "none";
+				return;
+			}
+
+			navigator.mediaSession.metadata = new window.MediaMetadata({
+				title: song.title,
+				artist: song.artist,
+				album: song.album,
+				artwork: song.artwork && [{ src: (await localImages.getSongImageUrl(song.artwork))! }],
+			});
+		});
+	}
+
+	function addMusicSessionActionHandlers(): void {
+		if (!("mediaSession" in navigator)) return;
+
+		navigator.mediaSession.setActionHandler("pause", async () => {
+			await pause();
+			navigator.mediaSession.playbackState = "paused";
+		});
+		navigator.mediaSession.setActionHandler("play", async () => {
+			await play();
+			navigator.mediaSession.playbackState = "playing";
+		});
+		navigator.mediaSession.setActionHandler("previoustrack", async () => {
+			await skipPrevious();
+		});
+		navigator.mediaSession.setActionHandler("nexttrack", async () => {
+			await skipNext();
+		});
+	}
+	//#endregion
 
 	return {
 		loading,
-
-		playing: readonly(playing),
+		playing,
 		play,
 		pause,
 		togglePlay,
 
 		volume,
 		progress,
-		currentTime,
+
+		time,
 		duration,
 		timeRemaining,
 
-		queuedSongs,
+		queuedSongs: computed(() => queuedSongs.data.value),
 		queueIndex,
-		add,
-		remove,
+		addToQueue,
+		removeFromQueue,
+		moveQueueItem,
+
 		hasPrevious,
 		hasNext,
 		skipPrevious,
 		skipNext,
 		currentSong,
+
+		addMusicSessionActionHandlers,
+
+		searchSongs,
+		searchHints,
+		librarySongs,
+		refreshServices,
+
+		addMusicPlayerService,
+		getMusicPlayerService,
+		removeMusicPlayerService,
 	};
 });

@@ -1,16 +1,15 @@
 package com.musicplayer.app;
 
+import androidx.activity.result.ActivityResult;
+
+import com.apple.android.sdk.authentication.AuthenticationFactory;
+import com.apple.android.sdk.authentication.AuthenticationManager;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
-
-import com.apple.android.sdk.authentication.AuthenticationFactory;
-import com.apple.android.sdk.authentication.AuthenticationManager;
-import androidx.activity.result.ActivityResult;
-
 
 @CapacitorPlugin(name = "MusicKitAuthorization")
 public class MusicKitAuthorizationPlugin extends Plugin {
@@ -36,7 +35,7 @@ public class MusicKitAuthorizationPlugin extends Plugin {
                 .setHideStartScreen(true)
                 .build();
 
-        startActivityForResult(call, intent, "finishAuthorization");;
+        startActivityForResult(call, intent, "finishAuthorization");
     }
 
     @ActivityCallback()

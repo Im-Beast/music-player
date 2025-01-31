@@ -45,7 +45,15 @@
 	</array>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>This app uses Apple Music to play music and create playlists</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 </dict>
 </plist>

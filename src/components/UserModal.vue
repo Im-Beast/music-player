@@ -42,12 +42,10 @@ import AppleMusicLogo from "@/assets/branding/AppleMusic.svg?raw";
 
 const musicKit = useMusicKit();
 
-const props = defineProps({
-	modal: IonModal,
-});
+const { modal } = defineProps<{ modal: typeof IonModal }>();
 
 function close() {
-	props.modal!.$el.dismiss();
+	modal!.$el.dismiss();
 }
 </script>
 

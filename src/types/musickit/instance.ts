@@ -38,6 +38,19 @@ declare global {
 			previousPlayableItem?: MediaItem;
 		}
 
+		enum PlaybackStates {
+			"none" = 0,
+			"loading" = 1,
+			"playing" = 2,
+			"paused" = 3,
+			"stopped" = 4,
+			"ended" = 5,
+			"seeking" = 6,
+			"waiting" = 8,
+			"stalled" = 9,
+			"completed" = 10,
+		}
+
 		/**
 		 * Queue Options are used to instruct MusicKit to generate or amend a queue, for example using the MusicKitInstance.setQueue() method.
 		 *
@@ -96,6 +109,8 @@ declare global {
 			readonly currentPlaybackTime: number;
 			/** Set this to an Enum value from MusicKit.PlayerRepeatMode to control the repeat behavior during playback. */
 			repeatMode: PlayerRepeatMode;
+			/** The current playback state of the media player. See the Enum MusicKit.PlaybackStates for more information and the possible values. */
+			readonly playbackState: MusicKit.PlaybackStates;
 
 			/**
 			 * Sets the play head to a specified time within the nowPlayingItem.
@@ -129,9 +144,11 @@ declare global {
 			 */
 			playNext(options: QueueOptions, clear?: boolean): Promise<Queue | void>;
 			/** Initiates playback of the nowPlayingItem. */
-			play(): void;
+			play(): Promise<void>;
 			/** Pauses playback of the nowPlayingItem. */
-			pause(): void;
+			pause(): Promise<void>;
+			/** Stops the currently playing item. */
+			stop(): Promise<void>;
 
 			api: {
 				/**

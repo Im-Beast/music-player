@@ -6,7 +6,7 @@
 			</template>
 		</app-header>
 
-		<ion-content :fullscreen="true" class="ion-padding">HOME</ion-content>
+		<ion-content :fullscreen="true" class="ion-padding">HOME 2</ion-content>
 
 		<app-footer />
 	</ion-page>
