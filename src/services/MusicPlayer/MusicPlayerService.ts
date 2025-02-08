@@ -180,7 +180,7 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		this.store.time = timeInSeconds;
 	}
 
-	abstract handleSetVolume(timeInSeconds: number): void | Promise<void>;
+	abstract handleSetVolume(volume: number): void | Promise<void>;
 	async setVolume(volume: number): Promise<void> {
 		this.log("setVolume");
 		await this.initialize();

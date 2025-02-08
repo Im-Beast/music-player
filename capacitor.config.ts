@@ -5,6 +5,13 @@ const config: CapacitorConfig = {
 	appName: "music-player",
 	webDir: "dist/web",
 
+	plugins: {
+		// Patch fetch and XMLHttpRequest to use native libraries
+		// This allows us to bypass CORS
+		CapacitorHttp: { enabled: true },
+		CapacitorCookies: { enabled: true },
+	},
+
 	// There is no way to just exclude plugins for some platforms so we have to do this:
 	includePlugins: [
 		"@capacitor/app",

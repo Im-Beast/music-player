@@ -16,3 +16,13 @@ export function getPlatform(): Platform {
 			throw new Error(`Unknown platform: ${Capacitor.getPlatform()}`);
 	}
 }
+
+export function isMobilePlatform(): boolean {
+	switch (getPlatform()) {
+		case "android":
+		case "ios":
+			return true;
+		default:
+			return false;
+	}
+}

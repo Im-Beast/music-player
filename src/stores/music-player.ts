@@ -1,13 +1,13 @@
 import { defineStore } from "pinia";
-import { computed, Ref, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useLocalStorage, useStorage, watchDebounced } from "@vueuse/core";
 import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval";
 
 import { LocalMusicPlayerService } from "@/services/MusicPlayer/LocalMusicPlayerService";
-import { MusicKitMusicPlayerService } from "@/services/MusicPlayer/MusicKitMusicPlayerService";
 import { MusicPlayerService } from "@/services/MusicPlayer/MusicPlayerService";
 import { getPlatform } from "@/utils/os";
 import { useLocalImages } from "./local-images";
+import { YouTubeMusicPlayerService } from "@/services/MusicPlayer/YouTubeMusicPlayerService";
 
 declare global {
 	namespace ElectronMusicPlayer {
@@ -43,15 +43,17 @@ export interface Song<Type extends string, Data = {}> {
 }
 
 export type MusicKitSong = Song<"musickit">;
+export type YouTubeSong = Song<"youtube">;
 export type LocalSong = Song<"local", { path: string }>;
 
-export type AnySong = MusicKitSong | LocalSong;
+export type AnySong = MusicKitSong | YouTubeSong | LocalSong;
 
 export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	const localImages = useLocalImages();
 
 	const musicPlayerServices: Record<string, MusicPlayerService> = {
 		local: new LocalMusicPlayerService(),
+		youtube: new YouTubeMusicPlayerService(),
 	};
 
 	function addMusicPlayerService(type: string, service: MusicPlayerService): void {

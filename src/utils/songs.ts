@@ -1,37 +1,6 @@
-import { AnySong, LocalSong, MusicKitSong, SongImage } from "@/stores/music-player";
 import { intensity } from "./color";
 import { useLocalImages } from "@/stores/local-images";
-
-export async function musicKitSong(
-	song: MusicKit.Songs | MusicKit.LibrarySongs,
-): Promise<MusicKitSong> {
-	const attributes = song.attributes;
-	const artwork = attributes?.artwork && {
-		url: MusicKit.formatArtworkURL(attributes?.artwork, 256, 256),
-	};
-	return {
-		type: "musickit",
-
-		id: song.id,
-		title: attributes?.name,
-		artist: attributes?.artistName,
-		album: attributes?.albumName,
-		duration: attributes?.durationInMillis && attributes?.durationInMillis / 1000,
-		genre: attributes?.genreNames?.[0],
-
-		artwork,
-		style: await generateSongStyle(artwork),
-
-		data: {},
-	};
-}
-
-export function musicKitSongIdType(song: MusicKitSong): "library" | "catalog" {
-	if (!isNaN(Number(song.id))) {
-		return "catalog";
-	}
-	return "library";
-}
+import { AnySong, SongImage } from "@/stores/music-player";
 
 export function songTypeDisplayName(song: AnySong): string {
 	switch (song.type) {
@@ -39,6 +8,8 @@ export function songTypeDisplayName(song: AnySong): string {
 			return "Local";
 		case "musickit":
 			return "Apple Music";
+		case "youtube":
+			return "YouTube";
 	}
 }
 

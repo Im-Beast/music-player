@@ -7,8 +7,10 @@ import fs from "node:fs/promises";
 
 import { authorizeMusicKit } from "./musickit/auth";
 
+const urlScheme = "music-player";
 const loadUrl = electronServe({
 	directory: fileURLToPath(new URL("../renderer/", import.meta.url)),
+	scheme: urlScheme,
 });
 
 let mainWindow;
@@ -22,12 +24,16 @@ async function createWindow() {
 			preload: fileURLToPath(new URL("../preload/preload.cjs", import.meta.url)),
 			nodeIntegration: false,
 			contextIsolation: true,
+			// Disable CORS
+			webSecurity: false,
 		},
 	});
 
-	mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+	const { session } = mainWindow.webContents;
+
+	session.webRequest.onHeadersReceived((details, callback) => {
 		const CSP = `
-		default-src 'self' blob: 'unsafe-inline' https://*.apple.com;
+		default-src 'self' blob: data: 'unsafe-inline' 'unsafe-eval' https://*.apple.com https://*.youtube.com https://*.googlevideo.com https://*.googleapis.com;
 		img-src 'self' blob: data: *;
 		`;
 
