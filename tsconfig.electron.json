@@ -10,10 +10,15 @@
 		"isolatedModules": true,
 		"esModuleInterop": true,
 		"allowJs": true,
-		"lib": ["ESNext", "DOM"],
+		"lib": ["ESNext", "DOM", "DOM.AsyncIterable", "DOM.Iterable"],
 		"outDir": "build/electron",
 		"noEmit": false,
 		"types": ["vite/client"]
 	},
-	"include": ["electron/**/*.ts", "electron/**/*.cjs", "electron/**/*.d.ts"]
+	"include": [
+		"electron.vite.config.ts",
+		"electron/**/*.ts",
+		"electron/**/*.cjs",
+		"electron/**/*.d.ts"
+	]
 }

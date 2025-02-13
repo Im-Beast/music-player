@@ -1,19 +1,19 @@
 <template>
 	<ion-page>
-		<app-header>
+		<AppHeader>
 			<template #toolbar>
 				<ion-title>Home</ion-title>
 			</template>
-		</app-header>
+		</AppHeader>
 
 		<ion-content :fullscreen="true" class="ion-padding">HOME 2</ion-content>
 
-		<app-footer />
+		<AppFooter />
 	</ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonPage, IonTitle, IonContent } from "@ionic/vue";
-import AppHeader from "@/components/AppHeader.vue";
 import AppFooter from "@/components/AppFooter.vue";
+import AppHeader from "@/components/AppHeader.vue";
+import { IonContent, IonPage, IonTitle } from "@ionic/vue";
 </script>

@@ -1,17 +1,18 @@
 import Fuse from "fuse.js";
 import { parseBuffer, selectCover } from "music-metadata";
 
+import LocalMusic from "@/plugins/LocalMusicPlugin";
+
+import { useLocalImages } from "@/stores/local-images";
 import { LocalSong, SongImage } from "@/stores/music-player";
 
-import LocalMusic from "@/plugins/LocalMusicPlugin";
 import { MusicPlayerService } from "@/services/MusicPlayer/MusicPlayerService";
 
 import { base64StringToBuffer } from "@/utils/buffer";
-import { audioMimeTypeFromPath } from "@/utils/path";
 import { getPlatform } from "@/utils/os";
+import { audioMimeTypeFromPath } from "@/utils/path";
 import { generateSongStyle } from "@/utils/songs";
 import { useIDBKeyvalAsync } from "@/utils/vue";
-import { useLocalImages } from "@/stores/local-images";
 
 const localSongs = useIDBKeyvalAsync<LocalSong[]>("localMusicSongs", []);
 
@@ -25,7 +26,7 @@ async function* getSongPaths(): AsyncGenerator<{ filePath: string; id?: string }
 			break;
 		}
 		case "electron": {
-			const musicPath = await ElectronMusicPlayer.getMusicPath();
+			const musicPath = await ElectronMusicPlayer!.getMusicPath();
 			yield* traverseDirectory(musicPath);
 			break;
 		}
@@ -37,7 +38,7 @@ async function* getSongPaths(): AsyncGenerator<{ filePath: string; id?: string }
 
 async function* traverseDirectory(path: string): AsyncGenerator<{ filePath: string }> {
 	if (getPlatform() === "electron") {
-		for (const filePath of await ElectronMusicPlayer.traverseDirectory(path)) {
+		for (const filePath of await ElectronMusicPlayer!.traverseDirectory(path)) {
 			yield { filePath };
 		}
 	} else {
@@ -74,7 +75,7 @@ async function readSongFile(path: string): Promise<Uint8Array> {
 			return buffer;
 		}
 		case "electron": {
-			const buffer = await ElectronMusicPlayer.readFile(path);
+			const buffer = await ElectronMusicPlayer!.readFile(path);
 			return buffer;
 		}
 		default: {
@@ -182,13 +183,13 @@ async function getLocalSongs(clearCache = false): Promise<LocalSong[]> {
 export class LocalMusicPlayerService extends MusicPlayerService<LocalSong> {
 	logName = "LocalMusicPlayerService";
 	logColor = "#ddd480";
-	audio?: HTMLAudioElement;
+	audio!: HTMLAudioElement;
 
 	constructor() {
 		super();
 	}
 
-	async handleSearchHints(term: string): Promise<string[]> {
+	handleSearchHints(_term: string): string[] {
 		return [];
 	}
 
@@ -213,6 +214,10 @@ export class LocalMusicPlayerService extends MusicPlayerService<LocalSong> {
 		return songs;
 	}
 
+	handleGetSongFromSearchResult(searchResult: LocalSong): LocalSong {
+		return searchResult;
+	}
+
 	async handleLibrarySongs(_offset: number): Promise<LocalSong[]> {
 		// TODO: Just like search, maybe paginate?
 		return getLocalSongs();
@@ -230,7 +235,7 @@ export class LocalMusicPlayerService extends MusicPlayerService<LocalSong> {
 		return refreshed;
 	}
 
-	async handleInitialization(): Promise<void> {
+	handleInitialization(): void {
 		const audio = new Audio();
 		audio.addEventListener("timeupdate", () => {
 			this.store.time = audio.currentTime;
@@ -241,10 +246,10 @@ export class LocalMusicPlayerService extends MusicPlayerService<LocalSong> {
 		this.audio = audio;
 	}
 
-	async handleDeinitialization(): Promise<void> {
-		URL.revokeObjectURL(this.audio!.src);
-		this.audio!.remove();
-		this.audio = undefined;
+	handleDeinitialization(): void {
+		URL.revokeObjectURL(this.audio.src);
+		this.audio.remove();
+		this.audio = undefined!;
 	}
 
 	async handlePlay(): Promise<void> {
@@ -252,27 +257,29 @@ export class LocalMusicPlayerService extends MusicPlayerService<LocalSong> {
 		const buffer = await readSongFile(path);
 		const blob = new Blob([buffer], { type: audioMimeTypeFromPath(path) });
 		const url = URL.createObjectURL(blob);
-		this.audio!.src = url;
-		this.audio!.play();
+
+		const audio = this.audio;
+		audio.src = url;
+		await audio.play();
 	}
 
 	async handleResume(): Promise<void> {
-		await this.audio!.play();
+		await this.audio.play();
 	}
 
-	async handlePause(): Promise<void> {
-		await this.audio!.pause();
+	handlePause(): void {
+		this.audio.pause();
 	}
 
-	async handleStop(): Promise<void> {
-		await this.audio!.pause();
+	handleStop(): void {
+		this.audio.pause();
 	}
 
 	handleSeekToTime(timeInSeconds: number): void {
-		this.audio!.currentTime = timeInSeconds;
+		this.audio.currentTime = timeInSeconds;
 	}
 
 	handleSetVolume(volume: number): void {
-		this.audio!.volume = volume;
+		this.audio.volume = volume;
 	}
 }

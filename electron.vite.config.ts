@@ -1,6 +1,6 @@
+import vue from "@vitejs/plugin-vue";
 import type { ElectronViteConfig } from "electron-vite";
 import path from "path";
-import vue from "@vitejs/plugin-vue";
 
 export default {
 	main: {
@@ -35,6 +35,9 @@ export default {
 			rollupOptions: {
 				input: "./index.html",
 			},
+		},
+		define: {
+			__IS_ELECTRON__: "true",
 		},
 		resolve: {
 			alias: {

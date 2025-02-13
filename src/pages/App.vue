@@ -24,17 +24,17 @@
 </template>
 
 <script setup lang="ts">
+import { useMusicKit } from "@/stores/musickit";
 import {
 	IonApp,
-	IonRouterOutlet,
-	IonTabs,
-	IonTabBar,
-	IonTabButton,
 	IonIcon,
 	IonLabel,
+	IonRouterOutlet,
+	IonTabBar,
+	IonTabButton,
+	IonTabs,
 } from "@ionic/vue";
-import { search as searchIcon, home as homeIcon, library as libraryIcon } from "ionicons/icons";
-import { useMusicKit } from "./stores/musickit";
+import { home as homeIcon, library as libraryIcon, search as searchIcon } from "ionicons/icons";
 
 // Initialize MusicKit store to initialize authorization service
 useMusicKit();

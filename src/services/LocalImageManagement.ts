@@ -1,5 +1,5 @@
-import { Service } from "./Service";
 import { useIDBKeyvalAsync } from "@/utils/vue";
+import { Service } from "./Service";
 
 interface LocalImageInfo {
 	[imageId: string]: { image?: Blob; url?: string } | undefined;
@@ -20,7 +20,7 @@ export class LocalImageManagementService extends Service {
 	}
 
 	#revoked = false;
-	async initialize() {
+	async initialize(): Promise<void> {
 		this.log("initialize");
 		if (!this.#revoked) {
 			// We have to clear urls that have been set in the previous session
@@ -118,7 +118,7 @@ export class LocalImageManagementService extends Service {
 
 		const localImageInfo = await this.#localImageInfo;
 		for (const key of Object.keys(localImageInfo.value)) {
-			this.revokeBlobUrl(key);
+			await this.revokeBlobUrl(key);
 		}
 	}
 }

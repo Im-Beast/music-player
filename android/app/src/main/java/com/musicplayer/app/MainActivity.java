@@ -11,4 +11,12 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LocalMusicPlugin.class);
         super.onCreate(savedInstanceState);
     }
+
+    @Override
+    public void onStart() {
+        var bridge = super.getBridge();
+        var webview = bridge.getWebView();
+        webview.setWebViewClient(new CleanWebViewClient(bridge));
+        super.onStart();
+    }
 }

@@ -7,7 +7,7 @@
 				<slot name="toolbar" />
 
 				<ion-buttons slot="end">
-					<ion-button @click="userModalOpen = true" id="open-user-modal">
+					<ion-button @click="openSettings">
 						<ion-icon size="large" slot="icon-only" :icon="personCircle" />
 					</ion-button>
 				</ion-buttons>
@@ -16,25 +16,20 @@
 
 		<slot name="trailing" />
 	</ion-header>
-
-	<ion-modal ref="userModal" :is-open="userModalOpen" @didDismiss="userModalOpen = false">
-		<UserModal :modal="userModal" />
-	</ion-modal>
 </template>
 
 <script setup lang="ts">
-import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonModal } from "@ionic/vue";
+import { createSettingsModal } from "@/components/AppSettingsModal.vue";
+import { IonButton, IonButtons, IonHeader, IonIcon, IonToolbar } from "@ionic/vue";
 import { personCircle } from "ionicons/icons";
 
-import UserModal from "@/components/UserModal.vue";
-import { ref } from "vue";
+const { showToolbar = true } = defineProps<{ showToolbar?: boolean }>();
 
-const { showToolbar = true } = defineProps<{
-	showToolbar?: boolean;
-}>();
-
-const userModal = ref();
-const userModalOpen = ref(false);
+async function openSettings(): Promise<void> {
+	const modal = await createSettingsModal();
+	await modal.present();
+	await modal.onDidDismiss();
+}
 </script>
 
 <style scoped>

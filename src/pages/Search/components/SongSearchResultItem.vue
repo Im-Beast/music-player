@@ -14,7 +14,7 @@
 			<h2>{{ title ?? "Unknown title" }}</h2>
 			<ion-note>
 				<ion-icon :icon="compassIcon" />
-				{{ songTypeToDisplayName(song.type) }}
+				{{ songTypeToDisplayName(searchResult.type) }}
 				<ion-icon :icon="musicalNoteIcon" />
 				{{ artist }}
 			</ion-note>
@@ -24,21 +24,25 @@
 
 <script setup lang="ts">
 import SongImg from "@/components/SongImg.vue";
-import SongItemMenu from "@/components/SongItemMenu.vue";
 import { createSongMenuPopover, handleHoldSongMenuPopover } from "@/components/SongMenu.vue";
+import type { SongSearchResult } from "@/services/MusicPlayer/MusicPlayerService";
 import { AnySong, useMusicPlayer } from "@/stores/music-player";
 import { songTypeToDisplayName } from "@/utils/songs";
 import { IonIcon, IonItem, IonLabel, IonNote, IonThumbnail } from "@ionic/vue";
 import { vOnLongPress } from "@vueuse/components";
 import { compass as compassIcon, musicalNote as musicalNoteIcon } from "ionicons/icons";
 
-const { song } = defineProps<{ song: AnySong }>();
-const { title, artist, artwork } = song;
+import SongSearchResultMenu from "./SongSearchResultMenu.vue";
+
+const { searchResult } = defineProps<{ searchResult: SongSearchResult }>();
+const { title, artist, artwork } = searchResult;
+const { resolve, promise: song } = Promise.withResolvers<AnySong>();
 
 const musicPlayer = useMusicPlayer();
 
-function play(): void {
-	musicPlayer.addToQueue(song, musicPlayer.queueIndex);
+async function play(): Promise<void> {
+	resolve(musicPlayer.getSongFromSearchResult(searchResult));
+	musicPlayer.addToQueue(await song, musicPlayer.queueIndex);
 }
 
 async function handleHoldPopover(event: Event): Promise<void> {
@@ -46,7 +50,8 @@ async function handleHoldPopover(event: Event): Promise<void> {
 }
 
 async function createPopover(event: Event): Promise<void> {
-	const popover = await createSongMenuPopover(event, SongItemMenu, { song });
+	resolve(musicPlayer.getSongFromSearchResult(searchResult));
+	const popover = await createSongMenuPopover(event, SongSearchResultMenu, { searchResult, song });
 	await popover.present();
 }
 </script>

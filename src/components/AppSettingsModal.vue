@@ -24,28 +24,36 @@
 	</ion-content>
 </template>
 
+<script lang="ts">
+import AppSettingsModal from "./AppSettingsModal.vue";
+export async function createSettingsModal(): Promise<HTMLIonModalElement> {
+	const modal = await modalController.create({
+		component: AppSettingsModal,
+	});
+	return modal;
+}
+</script>
+
 <script setup lang="ts">
 import { useMusicKit } from "@/stores/musickit";
 import {
-	IonModal,
-	IonHeader,
-	IonToolbar,
 	IonButton,
-	IonTitle,
 	IonButtons,
 	IonContent,
+	IonHeader,
 	IonItem,
 	IonLabel,
+	IonTitle,
+	IonToolbar,
+	modalController,
 } from "@ionic/vue";
 
 import AppleMusicLogo from "@/assets/branding/AppleMusic.svg?raw";
 
 const musicKit = useMusicKit();
 
-const { modal } = defineProps<{ modal: typeof IonModal }>();
-
-function close() {
-	modal!.$el.dismiss();
+async function close(): Promise<void> {
+	await modalController.dismiss();
 }
 </script>
 

@@ -1,7 +1,12 @@
 import { registerPlugin } from "@capacitor/core";
 
+export interface MusicKitTokens {
+	developerToken: string;
+	musicUserToken: string;
+}
+
 export interface MusicKitAuthorizationPlugin {
-	authorize(): Promise<{ developerToken: string; musicUserToken: string }>;
+	authorize(): Promise<MusicKitTokens>;
 }
 
 const MusicKitAuthorization = registerPlugin<MusicKitAuthorizationPlugin>("MusicKitAuthorization", {

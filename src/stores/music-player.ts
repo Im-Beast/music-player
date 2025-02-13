@@ -1,28 +1,17 @@
-import { defineStore } from "pinia";
-import { computed, Ref, ref, watch } from "vue";
 import { useLocalStorage, useStorage, watchDebounced } from "@vueuse/core";
 import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval";
+import { defineStore } from "pinia";
+import { computed, ref, watch } from "vue";
+
+import { MusicPlayerService, SongSearchResult } from "@/services/MusicPlayer/MusicPlayerService";
 
 import { LocalMusicPlayerService } from "@/services/MusicPlayer/LocalMusicPlayerService";
-import { MusicKitMusicPlayerService } from "@/services/MusicPlayer/MusicKitMusicPlayerService";
-import { MusicPlayerService } from "@/services/MusicPlayer/MusicPlayerService";
+import { YouTubeMusicPlayerService } from "@/services/MusicPlayer/YouTubeMusicPlayerService";
 import { getPlatform } from "@/utils/os";
 import { useLocalImages } from "./local-images";
 
-declare global {
-	namespace ElectronMusicPlayer {
-		// musickit:
-		const authorizeMusicKit: undefined | (() => Promise<string>);
-
-		// musicplayer:
-		const getMusicPath: () => Promise<string>;
-		const readFile: (path: string) => Promise<Uint8Array>;
-		const traverseDirectory: (path: string) => Promise<string[]>;
-	}
-}
-
 export type SongImage = { id: string; url?: never } | { id?: never; url: string };
-export interface Song<Type extends string, Data = {}> {
+export interface Song<Type extends string, Data = unknown> {
 	type: Type;
 
 	id: string;
@@ -43,15 +32,17 @@ export interface Song<Type extends string, Data = {}> {
 }
 
 export type MusicKitSong = Song<"musickit">;
+export type YouTubeSong = Song<"youtube">;
 export type LocalSong = Song<"local", { path: string }>;
 
-export type AnySong = MusicKitSong | LocalSong;
+export type AnySong = MusicKitSong | YouTubeSong | LocalSong;
 
 export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	const localImages = useLocalImages();
 
 	const musicPlayerServices: Record<string, MusicPlayerService> = {
 		local: new LocalMusicPlayerService(),
+		youtube: new YouTubeMusicPlayerService(),
 	};
 
 	function addMusicPlayerService(type: string, service: MusicPlayerService): void {
@@ -66,8 +57,9 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 		delete musicPlayerServices[type];
 	}
 
-	const withAllServices = <T>(callback: (service: MusicPlayerService) => T) =>
-		Promise.all(Object.values(musicPlayerServices).map(callback));
+	function withAllServices<T>(callback: (service: MusicPlayerService) => T): Promise<Awaited<T>[]> {
+		return Promise.all(Object.values(musicPlayerServices).map(callback));
+	}
 
 	const queuedSongs = useIDBKeyval<AnySong[]>("queuedSongs", []);
 	const queueIndex = useStorage("queueIndex", 0);
@@ -85,7 +77,7 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 			if (!service) return;
 
 			if (song) {
-				await service.changeSong(song!);
+				await service.changeSong(song);
 				if (autoPlay) {
 					await service.play();
 				} else {
@@ -125,13 +117,13 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	const duration = ref(1);
 	const progress = computed({
 		get: () => time.value / duration.value,
-		set: (progress) => {
-			currentService.value?.seekToTime(progress * duration.value);
+		set: async (progress) => {
+			await currentService.value?.seekToTime?.(progress * duration.value);
 		},
 	});
 
-	watch([time, duration], async ([time, duration]) => {
-		if (Math.floor(duration - time) === 0) await skipNext();
+	watch([time, duration], ([time, duration]) => {
+		if (Math.floor(duration - time) === 0) skipNext();
 	});
 
 	const hasPrevious = computed(() => queueIndex.value > 0);
@@ -165,24 +157,22 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 		}
 	}
 
-	function play() {
-		return currentService.value?.play();
+	async function play(): Promise<void> {
+		await currentService.value?.play();
+	}
+	async function pause(): Promise<void> {
+		await currentService.value?.pause();
 	}
 
-	function pause() {
-		return currentService.value?.pause();
+	async function togglePlay(): Promise<void> {
+		await currentService.value?.togglePlay();
 	}
 
-	function togglePlay() {
-		return currentService.value?.togglePlay();
-	}
-
-	async function skipPrevious() {
+	function skipPrevious(): void {
 		if (!hasPrevious.value) return;
 		queueIndex.value--;
 	}
-
-	async function skipNext() {
+	function skipNext(): void {
 		if (!hasNext.value) return;
 		queueIndex.value++;
 	}
@@ -192,7 +182,7 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 		return allHints.flat();
 	}
 
-	async function searchSongs(term: string, offset = 0): Promise<AnySong[]> {
+	async function searchSongs(term: string, offset = 0): Promise<SongSearchResult[]> {
 		const allResults = await withAllServices((service) => service.searchSongs(term, offset));
 		return allResults.flat();
 	}
@@ -210,10 +200,15 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 		await musicPlayerServices[song.type].refreshSong(song);
 	}
 
+	async function getSongFromSearchResult(searchResult: SongSearchResult): Promise<AnySong> {
+		const song = await musicPlayerServices[searchResult.type].getSongFromSearchResult(searchResult);
+		return song;
+	}
+
 	//#region System Music Controls
 	// Android's WebView doesn't support MediaSession
 	if (getPlatform() === "android") {
-		import("capacitor-music-controls-plugin").then(({ CapacitorMusicControls }) => {
+		void import("capacitor-music-controls-plugin").then(({ CapacitorMusicControls }) => {
 			let musicControlsExist = false;
 			watch(
 				[hasPrevious, hasNext, currentSong],
@@ -256,9 +251,9 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 				{ immediate: true },
 			);
 
-			watch([playing, time], async ([isPlaying, elapsed]) => {
+			watch([playing, time], ([isPlaying, elapsed]) => {
 				if (!musicControlsExist) return;
-				await CapacitorMusicControls.updateElapsed({ isPlaying, elapsed });
+				CapacitorMusicControls.updateElapsed({ isPlaying, elapsed });
 			});
 
 			document.addEventListener("controlsNotification", async (event: Event) => {
@@ -272,10 +267,10 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 						await pause();
 						break;
 					case "music-controls-next":
-						await skipNext();
+						skipNext();
 						break;
 					case "music-controls-previous":
-						await skipPrevious();
+						skipPrevious();
 						break;
 				}
 			});
@@ -315,11 +310,11 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 			await play();
 			navigator.mediaSession.playbackState = "playing";
 		});
-		navigator.mediaSession.setActionHandler("previoustrack", async () => {
-			await skipPrevious();
+		navigator.mediaSession.setActionHandler("previoustrack", () => {
+			skipPrevious();
 		});
-		navigator.mediaSession.setActionHandler("nexttrack", async () => {
-			await skipNext();
+		navigator.mediaSession.setActionHandler("nexttrack", () => {
+			skipNext();
 		});
 	}
 	//#endregion
@@ -354,6 +349,7 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 
 		searchSongs,
 		searchHints,
+		getSongFromSearchResult,
 		librarySongs,
 		refreshSong,
 		refreshLibrarySongs,

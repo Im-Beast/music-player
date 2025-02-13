@@ -11,8 +11,8 @@ const authClientTemplate = Handlebars.compile(AuthTemplate);
 //  - Host localhost server
 //  - Open website that calls MusicKit.Instance.authorize in the web browser
 //  - After authorization send the token to the server
-export async function authorizeMusicKit() {
-	const { promise, resolve, reject } = Promise.withResolvers();
+export async function authorizeMusicKit(): Promise<string | undefined> {
+	const { promise, resolve, reject } = Promise.withResolvers<string | undefined>();
 
 	let serverUrl: string;
 	const server = http.createServer((req, res) => {
@@ -35,7 +35,7 @@ export async function authorizeMusicKit() {
 		);
 	});
 
-	server.listen(() => {
+	server.listen(async () => {
 		const address = server.address();
 		if (!address) {
 			reject("Couldn't receive server address");
@@ -45,7 +45,7 @@ export async function authorizeMusicKit() {
 
 		serverUrl = typeof address === "object" ? `http://localhost:${address.port}` : address;
 		console.log(`Server running at ${serverUrl}`);
-		shell.openExternal(serverUrl);
+		await shell.openExternal(serverUrl);
 	});
 
 	return await promise;

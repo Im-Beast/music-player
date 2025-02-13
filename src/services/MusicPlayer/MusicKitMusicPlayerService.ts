@@ -1,7 +1,39 @@
-import { useMusicKit } from "@/stores/musickit";
-import { MusicPlayerService } from "@/services/MusicPlayer/MusicPlayerService";
-import { musicKitSong, musicKitSongIdType } from "@/utils/songs";
 import { MusicKitSong } from "@/stores/music-player";
+import { useMusicKit } from "@/stores/musickit";
+
+import { MusicPlayerService } from "@/services/MusicPlayer/MusicPlayerService";
+
+import { generateSongStyle } from "@/utils/songs";
+
+export async function musicKitSong(
+	song: MusicKit.Songs | MusicKit.LibrarySongs,
+): Promise<MusicKitSong> {
+	const attributes = song.attributes;
+	const artworkUrl = attributes?.artwork;
+	const artwork = artworkUrl && { url: MusicKit.formatArtworkURL(artworkUrl, 256, 256) };
+	return {
+		type: "musickit",
+
+		id: song.id,
+		title: attributes?.name,
+		artist: attributes?.artistName,
+		album: attributes?.albumName,
+		duration: attributes?.durationInMillis && attributes?.durationInMillis / 1000,
+		genre: attributes?.genreNames?.[0],
+
+		artwork,
+		style: await generateSongStyle(artwork),
+
+		data: {},
+	};
+}
+
+export function musicKitSongIdType(song: MusicKitSong): "library" | "catalog" {
+	if (!isNaN(Number(song.id))) {
+		return "catalog";
+	}
+	return "library";
+}
 
 export class MusicKitMusicPlayerService extends MusicPlayerService<MusicKitSong> {
 	logName = "MusicKitMusicPlayerService";
@@ -43,6 +75,10 @@ export class MusicKitMusicPlayerService extends MusicPlayerService<MusicKitSong>
 		return [];
 	}
 
+	handleGetSongFromSearchResult(searchResult: MusicKitSong): MusicKitSong {
+		return searchResult;
+	}
+
 	async handleRefreshLibrarySongs(): Promise<void> {
 		// TODO: Unimplemented
 	}
@@ -80,8 +116,8 @@ export class MusicKitMusicPlayerService extends MusicPlayerService<MusicKitSong>
 		return await Promise.all(promises);
 	}
 
-	#timeUpdateCallback = () => {
-		this.store.time = this.music!.currentPlaybackTime;
+	#timeUpdateCallback = (): void => {
+		this.store.time = this.music.currentPlaybackTime;
 	};
 
 	async handleInitialization(): Promise<void> {
@@ -96,7 +132,7 @@ export class MusicKitMusicPlayerService extends MusicPlayerService<MusicKitSong>
 		this.music = music;
 	}
 
-	async handleDeinitialization(): Promise<void> {
+	handleDeinitialization(): void {
 		this.music.removeEventListener("playbackTimeDidChange", this.#timeUpdateCallback);
 	}
 

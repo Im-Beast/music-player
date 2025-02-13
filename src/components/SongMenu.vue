@@ -1,7 +1,7 @@
 <template>
 	<ion-content :scroll-y="false" v-on-click-outside="dismiss">
 		<div class="preview">
-			<song-img
+			<SongImg
 				v-if="song.artwork"
 				class="artwork"
 				:alt="`Artwork for ${song.title}`"
@@ -20,14 +20,58 @@
 	</ion-content>
 </template>
 
+<script lang="ts">
+type Component = PopoverOptions["component"];
+type ComponentProps = PopoverOptions["componentProps"];
+export async function handleHoldSongMenuPopover(
+	event: Event,
+	callback: () => void | Promise<void>,
+): Promise<void> {
+	// Disable on non-touch devices
+	if (!isMobilePlatform()) return;
+	event.preventDefault();
+
+	await Haptics.impact({ style: ImpactStyle.Heavy });
+	await callback();
+}
+
+export async function createSongMenuPopover(
+	event: Event,
+	component: Component,
+	componentProps: ComponentProps,
+): Promise<HTMLIonPopoverElement> {
+	const popover = await popoverController.create({
+		component,
+		event,
+		componentProps,
+
+		arrow: false,
+		reference: "event",
+		alignment: "start",
+		side: "right",
+
+		// Built-in popover animations feel weird, so we have our own
+		cssClass: "song-item-popover",
+		backdropDismiss: false,
+		dismissOnSelect: false,
+		animated: false,
+		mode: "ios",
+	});
+	popover.componentProps!.popover = popover;
+	return popover;
+}
+</script>
+
 <script setup lang="ts">
-import { IonContent, IonList, popoverController } from "@ionic/vue";
-import { AnySong } from "@/stores/music-player";
 import SongImg from "@/components/SongImg.vue";
+import { AnySong } from "@/stores/music-player";
+import { isMobilePlatform } from "@/utils/os";
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { IonContent, IonList, popoverController, PopoverOptions } from "@ionic/vue";
 import { vOnClickOutside } from "@vueuse/components";
 import { onMounted } from "vue";
 
-const { song, popover } = defineProps<{ song: AnySong; popover: HTMLIonPopoverElement }>();
+const { song, popover } = defineProps<{ song: Partial<AnySong>; popover: HTMLIonPopoverElement }>();
 
 // Clamp popover position to the boundaries of the screen
 onMounted(async () => {
@@ -52,7 +96,7 @@ onMounted(async () => {
 	}
 });
 
-async function dismiss() {
+function dismiss(): void {
 	popover.classList.add("dismissed");
 	setTimeout(async () => {
 		await popover.dismiss();
@@ -82,23 +126,25 @@ async function dismiss() {
 }
 
 .song-item-popover {
-	--width: min(270px, 65vw);
 	--background: transparent;
 	--box-shadow: none;
 
 	/** On mobile devices offset it, so that finger sits closer to the buttons */
+	--width: min(270px, 65vw);
 	--offset-x: -75px;
 	--offset-y: -50px;
 	--transform-origin: top center;
+	animation: song-menu-blur-in 350ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 
-	/** On computers people expect context menus to open on the corner */
+	/** On computers people expect context menus to open on the corner, and still see content behind it */
 	@media (pointer: fine) {
+		--width: max-content;
 		--offset-x: 0px;
 		--offset-y: 0px;
 		--transform-origin: top left;
+		animation: none;
 	}
 
-	animation: song-menu-blur-in 350ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 	&::part(content) {
 		transition: all 250ms;
 		border: none;
@@ -111,7 +157,8 @@ async function dismiss() {
 	}
 
 	&.dismissed {
-		animation: song-menu-blur-in 350ms ease-out reverse forwards;
+		animation-direction: reverse;
+
 		&::part(content) {
 			opacity: 0;
 			transform: scale(0);
@@ -138,6 +185,11 @@ ion-content {
 		margin-bottom: 12px;
 		user-select: none;
 		background-color: var(--item-color);
+
+		/** We don't show preview on desktops */
+		@media (pointer: fine) {
+			display: none;
+		}
 
 		& > .artwork {
 			width: 35%;

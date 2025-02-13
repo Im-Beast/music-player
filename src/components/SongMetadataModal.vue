@@ -12,7 +12,7 @@
 	<ion-content>
 		<ion-list>
 			<ion-item class="artwork-picker">
-				<song-img
+				<SongImg
 					:src="metadata.artwork ?? song.artwork"
 					:alt="`Preview of metadata artwork for song ${metadata.title}`"
 					@click="imagePicker?.click()"
@@ -63,26 +63,70 @@
 	</ion-content>
 </template>
 
+<script lang="ts">
+import SongMetadataModal from "./SongMetadataModal.vue";
+export async function createMetadataModal(song: AnySong): Promise<HTMLIonModalElement> {
+	const songMetadata = useSongMetadata();
+	const musicPlayer = useMusicPlayer();
+
+	const modal = await modalController.create({
+		component: SongMetadataModal,
+		componentProps: { song },
+
+		async canDismiss(data?: { metadata?: MetadataOverride; modified?: boolean }) {
+			if (data && "modified" in data && !data.modified) {
+				return true;
+			}
+
+			const actionSheet = await actionSheetController.create({
+				header: "You have made some changes",
+				subHeader: "What do you want to happen to them?",
+				buttons: [
+					{ text: "Save", role: "selected", data: { action: "save" } },
+					{ text: "Discard", role: "destructive", data: { action: "discard" } },
+				],
+			});
+
+			await actionSheet.present();
+			const info = await actionSheet.onWillDismiss();
+
+			switch (info?.data?.action) {
+				case "save":
+					await songMetadata.setMetadata(song, data!.metadata!);
+					await musicPlayer.refreshSong(song);
+					return true;
+				case "discard":
+					return true;
+				default:
+					return false;
+			}
+		},
+	});
+
+	return modal;
+}
+</script>
+
 <script setup lang="ts">
-import { ref } from "vue";
-import { MetadataOverride, useSongMetadata } from "@/stores/metadata";
-import { AnySong } from "@/stores/music-player";
-import {
-	IonHeader,
-	IonToolbar,
-	IonButton,
-	IonTitle,
-	IonButtons,
-	IonContent,
-	IonItem,
-	IonInput,
-	IonList,
-	modalController,
-	InputCustomEvent,
-	actionSheetController,
-} from "@ionic/vue";
 import SongImg from "@/components/SongImg.vue";
 import { useLocalImages } from "@/stores/local-images";
+import { MetadataOverride, useSongMetadata } from "@/stores/metadata";
+import { AnySong, useMusicPlayer } from "@/stores/music-player";
+import {
+	InputCustomEvent,
+	IonButton,
+	IonButtons,
+	IonContent,
+	IonHeader,
+	IonInput,
+	IonItem,
+	IonList,
+	IonTitle,
+	IonToolbar,
+	actionSheetController,
+	modalController,
+} from "@ionic/vue";
+import { ref } from "vue";
 
 const { song } = defineProps<{ song: AnySong }>();
 const songMetadata = useSongMetadata();
@@ -90,18 +134,18 @@ const localImages = useLocalImages();
 
 const metadata = ref(songMetadata.getReactiveMetadata(song));
 
-function onInput(key: keyof MetadataOverride, event: InputCustomEvent) {
+function onInput(key: keyof MetadataOverride, event: InputCustomEvent): void {
 	modify(key, `${event.target.value}`);
 }
 
-let modified = ref(false);
-function modify<K extends keyof MetadataOverride>(key: K, value: MetadataOverride[K]) {
+const modified = ref(false);
+function modify<K extends keyof MetadataOverride>(key: K, value: MetadataOverride[K]): void {
 	metadata.value[key] = value;
 	modified.value = true;
 }
 
 const imagePicker = ref<HTMLInputElement>();
-async function changeArtwork() {
+async function changeArtwork(): Promise<void> {
 	const { files } = imagePicker.value!;
 
 	if (!files?.length) {

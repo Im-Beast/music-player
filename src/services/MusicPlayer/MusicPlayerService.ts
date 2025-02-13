@@ -1,10 +1,22 @@
-import { Service } from "@/services/Service";
 import { useSongMetadata } from "@/stores/metadata";
-import { useMusicPlayer } from "@/stores/music-player";
-import type { AnySong, SongImage } from "@/stores/music-player";
-import { useIDBKeyvalAsync } from "@/utils/vue";
+import { AnySong, SongImage, useMusicPlayer } from "@/stores/music-player";
 
-export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends Service {
+import { Service } from "@/services/Service";
+
+export interface SongSearchResult<Song extends AnySong = AnySong> {
+	type: Song["type"];
+
+	id: string;
+	title?: string;
+	artist?: string;
+	album?: string;
+	artwork?: SongImage;
+}
+
+export abstract class MusicPlayerService<
+	Song extends AnySong = AnySong,
+	const SearchResult extends SongSearchResult<Song> = SongSearchResult<Song>,
+> extends Service {
 	abstract logName: string;
 
 	store = useMusicPlayer();
@@ -27,34 +39,41 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		}
 	}
 
-	abstract handleSearchSongs(term: string, offset: number): Promise<Song[]>;
-	async searchSongs(term: string, offset = 0): Promise<Song[]> {
+	// TODO: make search and library return reactive arrays
+	abstract handleSearchSongs(term: string, offset: number): Promise<SearchResult[]>;
+	async searchSongs(term: string, offset = 0): Promise<SearchResult[]> {
 		this.log("searchSongs");
 		await this.initialize();
 		return await this.handleSearchSongs(term, offset);
 	}
 
-	abstract handleSearchHints(term: string): Promise<string[]>;
+	abstract handleGetSongFromSearchResult(searchResult: SearchResult): Song | Promise<Song>;
+	async getSongFromSearchResult(searchResult: SearchResult): Promise<Song> {
+		this.log("getSongFromSearchResult");
+		return await this.handleGetSongFromSearchResult(searchResult);
+	}
+
+	abstract handleSearchHints(term: string): string[] | Promise<string[]>;
 	async searchHints(term: string): Promise<string[]> {
 		this.log("searchHints");
 		await this.initialize();
 		return await this.handleSearchHints(term);
 	}
 
-	abstract handleLibrarySongs(offset: number): Promise<Song[]>;
+	abstract handleLibrarySongs(offset: number): Song[] | Promise<Song[]>;
 	async librarySongs(offset = 0): Promise<Song[]> {
 		this.log("librarySongs");
 		await this.initialize();
 		const songs = await this.handleLibrarySongs(offset);
 		for (const song of songs) {
-			this.applyMetadata(song);
+			await this.applyMetadata(song);
 		}
 		return songs;
 	}
 
 	async handleApplyMetadata(song: Song): Promise<void> {
 		const metadata = await this.metadataStore.getMetadata(song);
-		if (metadata) {
+		if (Object.keys(metadata).length > 0) {
 			this.log("Applied metadata override for", song.id);
 			Object.assign(song, metadata satisfies Partial<AnySong>);
 		}
@@ -64,13 +83,13 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		await this.handleApplyMetadata(song);
 	}
 
-	abstract handleRefreshLibrarySongs(): Promise<void>;
+	abstract handleRefreshLibrarySongs(): void | Promise<void>;
 	async refreshLibrarySongs(): Promise<void> {
 		this.log("refresh");
 		await this.handleRefreshLibrarySongs();
 	}
 
-	abstract handleRefreshSong(song: Song): Promise<Song>;
+	abstract handleRefreshSong(song: Song): Song | Promise<Song>;
 	async refreshSong(song: Song): Promise<void> {
 		const refreshed = await this.handleRefreshSong(song);
 		if (song.id !== refreshed.id) {
@@ -98,7 +117,7 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		this.store.duration = song.duration ?? 1;
 	}
 
-	abstract handleInitialization(): Promise<void>;
+	abstract handleInitialization(): void | Promise<void>;
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
 		this.log("initialize");
@@ -109,7 +128,7 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		MusicPlayerService.initializedServices.add(this);
 	}
 
-	abstract handleDeinitialization(): Promise<void>;
+	abstract handleDeinitialization(): void | Promise<void>;
 	async deinitialize(): Promise<void> {
 		this.log("deinitialize");
 		if (!this.initialized) return;
@@ -120,7 +139,7 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		MusicPlayerService.initializedServices.delete(this);
 	}
 
-	abstract handlePlay(): Promise<void>;
+	abstract handlePlay(): void | Promise<void>;
 	abstract handleResume(): Promise<void>;
 	async play(): Promise<void> {
 		this.store.loading = true;
@@ -140,7 +159,7 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		this.store.playing = true;
 	}
 
-	abstract handlePause(): Promise<void>;
+	abstract handlePause(): void | Promise<void>;
 	async pause(): Promise<void> {
 		this.log("pause");
 		this.store.loading = true;
@@ -151,7 +170,7 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		this.store.playing = false;
 	}
 
-	abstract handleStop(): Promise<void>;
+	abstract handleStop(): void | Promise<void>;
 	async stop(): Promise<void> {
 		this.log("stop");
 		this.store.loading = true;
@@ -180,7 +199,7 @@ export abstract class MusicPlayerService<Song extends AnySong = AnySong> extends
 		this.store.time = timeInSeconds;
 	}
 
-	abstract handleSetVolume(timeInSeconds: number): void | Promise<void>;
+	abstract handleSetVolume(volume: number): void | Promise<void>;
 	async setVolume(volume: number): Promise<void> {
 		this.log("setVolume");
 		await this.initialize();

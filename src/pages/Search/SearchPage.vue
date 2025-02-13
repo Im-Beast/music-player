@@ -1,6 +1,6 @@
 <template>
 	<ion-page>
-		<app-header :showToolbar="!isSearching">
+		<AppHeader :showToolbar="!isSearching">
 			<template #toolbar>
 				<ion-title>Search</ion-title>
 			</template>
@@ -26,7 +26,7 @@
 					<ion-progress-bar v-if="isLoading" type="indeterminate" />
 				</ion-toolbar>
 			</template>
-		</app-header>
+		</AppHeader>
 
 		<ion-content :fullscreen="true">
 			<ion-list id="search-suggestions" v-if="isSearching && searchSuggestions.length">
@@ -44,46 +44,53 @@
 				</ion-item>
 			</ion-list>
 
-			<template v-if="!isSearching && search">
-				<ion-list id="search-results">
-					<ion-list>
-						<song-item v-for="song in songs" :key="getUniqueSongId(song)" :song />
-					</ion-list>
+			<ion-list v-if="!isSearching && search" id="search-results">
+				<ion-list>
+					<SongSearchResultItem
+						v-for="searchResult of searchResults"
+						:key="getUniqueObjectId(searchResult)"
+						:search-result
+					/>
 				</ion-list>
-			</template>
+			</ion-list>
 		</ion-content>
 
-		<app-footer />
+		<AppFooter />
 	</ion-page>
 </template>
 
 <script setup lang="ts">
 import {
 	IonContent,
-	IonPage,
-	IonList,
+	IonIcon,
 	IonItem,
+	IonLabel,
+	IonList,
+	IonPage,
+	IonProgressBar,
+	IonSearchbar,
 	IonTitle,
 	IonToolbar,
-	IonSearchbar,
-	IonLabel,
-	IonIcon,
-	IonProgressBar,
 } from "@ionic/vue";
 import { search as searchIcon } from "ionicons/icons";
-import AppHeader from "@/components/AppHeader.vue";
-import AppFooter from "@/components/AppFooter.vue";
 import { ref } from "vue";
-import { useMusicPlayer, type AnySong } from "@/stores/music-player";
-import SongItem from "@/components/SongItem.vue";
-import { getUniqueSongId } from "@/utils/songs";
+
+import type { SongSearchResult } from "@/services/MusicPlayer/MusicPlayerService";
+import { useMusicPlayer } from "@/stores/music-player";
+
+import AppFooter from "@/components/AppFooter.vue";
+import AppHeader from "@/components/AppHeader.vue";
+
+import SongSearchResultItem from "./components/SongSearchResultItem.vue";
+
+import { getUniqueObjectId } from "@/utils/vue";
 
 const musicPlayer = useMusicPlayer();
 const search = ref("");
 const isSearching = ref(false);
 const searchSuggestions = ref<string[]>([]);
 
-const songs = ref<AnySong[]>([]);
+const searchResults = ref<SongSearchResult[]>([]);
 const isLoading = ref(false);
 
 async function updateSearchHints(): Promise<void> {
@@ -99,7 +106,7 @@ async function searchFor(term: string): Promise<void> {
 }
 
 async function updateSearchResults(): Promise<void> {
-	songs.value = await musicPlayer.searchSongs(search.value);
+	searchResults.value = await musicPlayer.searchSongs(search.value);
 }
 </script>
 

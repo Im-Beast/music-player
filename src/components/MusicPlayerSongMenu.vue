@@ -1,5 +1,5 @@
 <template>
-	<song-menu :song :popover>
+	<SongMenu :song :popover>
 		<ion-item :button="true" :detail="false" @click="playNow">
 			<ion-icon aria-hidden="true" :icon="playIcon" slot="end" />
 			Play now
@@ -14,17 +14,17 @@
 			<ion-icon aria-hidden="true" :icon="removeIcon" slot="end" />
 			Remove
 		</ion-item>
-	</song-menu>
+	</SongMenu>
 </template>
 
 <script setup lang="ts">
-import { IonItem, IonIcon } from "@ionic/vue";
+import SongMenu from "@/components/SongMenu.vue";
+import { IonIcon, IonItem } from "@ionic/vue";
 import {
-	playOutline as playIcon,
 	hourglassOutline as hourglassIcon,
+	playOutline as playIcon,
 	remove as removeIcon,
 } from "ionicons/icons";
-import SongMenu from "@/components/SongMenu.vue";
 
 import { AnySong, useMusicPlayer } from "@/stores/music-player";
 
@@ -36,15 +36,15 @@ const { song, index, popover } = defineProps<{
 
 const musicPlayer = useMusicPlayer();
 
-function playNow() {
+function playNow(): void {
 	musicPlayer.queueIndex = index;
 }
 
-function playNext() {
+function playNext(): void {
 	musicPlayer.moveQueueItem(index, musicPlayer.queueIndex + 1);
 }
 
-function remove() {
+function remove(): void {
 	musicPlayer.removeFromQueue(index);
 }
 </script>

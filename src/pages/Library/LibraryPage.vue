@@ -1,40 +1,40 @@
 <template>
 	<ion-page>
-		<app-header>
+		<AppHeader>
 			<template #toolbar>
 				<ion-title>Library</ion-title>
 				<ion-progress-bar v-if="isLoading" type="indeterminate" />
 			</template>
-		</app-header>
+		</AppHeader>
 
 		<ion-content :fullscreen="true">
 			<ion-refresher slot="fixed" @ion-refresh="refreshLocalLibrary($event)">
 				<ion-refresher-content />
 			</ion-refresher>
 
-			<song-item v-for="(song, i) in songs" :key="getUniqueSongId(song)" :song />
+			<SongItem v-for="song in songs" :key="getUniqueObjectId(song)" :song />
 		</ion-content>
 
-		<app-footer />
+		<AppFooter />
 	</ion-page>
 </template>
 
 <script setup lang="ts">
+import AppFooter from "@/components/AppFooter.vue";
+import AppHeader from "@/components/AppHeader.vue";
+import SongItem from "@/components/SongItem.vue";
+import { AnySong, useMusicPlayer } from "@/stores/music-player";
+import { getUniqueObjectId } from "@/utils/vue";
 import {
-	IonPage,
-	IonTitle,
 	IonContent,
+	IonPage,
+	IonProgressBar,
 	IonRefresher,
 	IonRefresherContent,
+	IonTitle,
 	RefresherCustomEvent,
-	IonProgressBar,
 } from "@ionic/vue";
-import AppHeader from "@/components/AppHeader.vue";
-import AppFooter from "@/components/AppFooter.vue";
 import { onUpdated, ref } from "vue";
-import { AnySong, useMusicPlayer } from "@/stores/music-player";
-import SongItem from "@/components/SongItem.vue";
-import { getUniqueSongId } from "@/utils/songs";
 
 const musicPlayer = useMusicPlayer();
 
@@ -47,7 +47,7 @@ onUpdated(async () => {
 	isLoading.value = false;
 });
 
-async function refreshLocalLibrary(event: RefresherCustomEvent) {
+async function refreshLocalLibrary(event: RefresherCustomEvent): Promise<void> {
 	await musicPlayer.refreshLibrarySongs();
 	songs.value = await musicPlayer.librarySongs();
 	await event.target.complete();

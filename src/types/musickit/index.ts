@@ -1,8 +1,8 @@
 import { EitherType } from "../../utils/types";
 
-import "./search";
 import "./instance";
 import "./objects";
+import "./search";
 
 declare global {
 	namespace MusicKit {
@@ -130,7 +130,7 @@ declare global {
 		}
 
 		function getInstance(): MusicKit.MusicKitInstance | undefined;
-		function configure(...args: any): MusicKit.MusicKitInstance;
+		function configure(...args: any): Promise<MusicKit.MusicKitInstance>;
 
 		/**
 		 * Takes an artwork object, which is common in Apple Music API Responses.

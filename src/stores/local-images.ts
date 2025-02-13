@@ -1,6 +1,6 @@
 import { LocalImageManagementService } from "@/services/LocalImageManagement";
+import { SongImage } from "@/stores/music-player";
 import { defineStore } from "pinia";
-import { SongImage } from "./music-player";
 
 export const useLocalImages = defineStore("LocalImages", () => {
 	const localImageManagementService = new LocalImageManagementService();

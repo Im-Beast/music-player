@@ -117,8 +117,8 @@ declare global {
 			 */
 			seekToTime(timeInS: number): Promise<void>;
 
-			authorize(): string;
-			unauthorize(): void;
+			authorize(): Promise<string>;
+			unauthorize(): Promise<void>;
 
 			queue: Queue;
 			/**

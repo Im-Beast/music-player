@@ -11,14 +11,12 @@ module.exports = {
 		"no-console": process.env.NODE_ENV === "production" ? "warn" : "off",
 		"no-debugger": process.env.NODE_ENV === "production" ? "warn" : "off",
 		"vue/no-deprecated-slot-attribute": "off",
+		"@typescript-eslint/explicit-function-return-type": "error",
 		"@typescript-eslint/no-explicit-any": "off",
 		"@typescript-eslint/no-namespace": "off",
 		"@typescript-eslint/no-unused-vars": [
 			"warn",
-			{
-				argsIgnorePattern: "^_",
-				varsIgnorePattern: "^_",
-			},
+			{ argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
 		],
 	},
 };

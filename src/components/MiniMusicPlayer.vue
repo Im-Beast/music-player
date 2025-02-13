@@ -1,7 +1,7 @@
 <template>
 	<ion-item button :detail="false" @click.self="modalOpen = true" v-if="currentSong?.id">
 		<ion-thumbnail slot="start">
-			<song-img :src="currentSong.artwork" :alt="`Artwork for song '${currentSong.title}'`" />
+			<SongImg :src="currentSong.artwork" :alt="`Artwork for song '${currentSong.title}'`" />
 		</ion-thumbnail>
 
 		<ion-label class="ion-text-nowrap">
@@ -37,25 +37,25 @@ import { storeToRefs } from "pinia";
 import { ref } from "vue";
 
 import {
-	play as playIcon,
-	pause as pauseIcon,
-	playSkipBack as skipPreviousIcon,
-	playSkipForward as skipNextIcon,
-} from "ionicons/icons";
-import {
-	IonItem,
-	IonThumbnail,
-	IonLabel,
 	IonButton,
 	IonButtons,
 	IonIcon,
+	IonItem,
+	IonLabel,
 	IonModal,
 	IonSpinner,
+	IonThumbnail,
 } from "@ionic/vue";
+import {
+	pause as pauseIcon,
+	play as playIcon,
+	playSkipForward as skipNextIcon,
+	playSkipBack as skipPreviousIcon,
+} from "ionicons/icons";
 
-import { useMusicPlayer } from "@/stores/music-player";
 import MusicPlayer from "@/components/MusicPlayer.vue";
 import SongImg from "@/components/SongImg.vue";
+import { useMusicPlayer } from "@/stores/music-player";
 
 const musicPlayer = useMusicPlayer();
 const { loading, playing, currentSong, hasPrevious, hasNext } = storeToRefs(musicPlayer);

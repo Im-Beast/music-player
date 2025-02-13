@@ -12,7 +12,7 @@
 			<!-- FIXME: Make artwork optional -->
 			<!-- TODO: Marquee on overflow -->
 			<div id="song-details" :class="{ compact: showQueue }">
-				<song-img
+				<SongImg
 					id="artwork"
 					:src="currentSong.artwork"
 					:alt="`Artwork for song '${currentSong.title}'`"
@@ -36,7 +36,7 @@
 					<ion-reorder-group :disabled="false" @ion-item-reorder="reorderQueue">
 						<ion-item
 							v-for="(song, i) in queuedSongs"
-							:key="getUniqueSongId(song)"
+							:key="getUniqueObjectId(song)"
 							button
 							:detail="false"
 							:class="{ current: i === queueIndex }"
@@ -45,7 +45,7 @@
 							@click.self="queueIndex = i"
 						>
 							<ion-thumbnail slot="start">
-								<song-img :src="song.artwork" :alt="`Artwork for song '${song.title}'`" />
+								<SongImg :src="song.artwork" :alt="`Artwork for song '${song.title}'`" />
 							</ion-thumbnail>
 
 							<ion-label class="ion-text-nowrap">
@@ -75,7 +75,7 @@
 			<div class="labels">
 				<ion-label id="current-time">{{ secondsToMMSS(time) }}</ion-label>
 				<ion-label id="source">
-					{{ songTypeDisplayName(currentSong) }}
+					{{ songTypeToDisplayName(currentSong.type) }}
 				</ion-label>
 				<ion-label id="time-remaining">{{ secondsToMMSS(timeRemaining) }}</ion-label>
 			</div>
@@ -138,37 +138,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
 import { storeToRefs } from "pinia";
+import { ref } from "vue";
 
 import {
-	play as playIcon,
-	pause as pauseIcon,
-	playSkipBack as skipPreviousIcon,
-	playSkipForward as skipNextIcon,
-	volumeLow as volumeLowIcon,
-	volumeHigh as volumeHighIcon,
-	list as listIcon,
-	musicalNotes as musicalNotesIcon,
-} from "ionicons/icons";
-import {
-	IonList,
 	IonButton,
 	IonButtons,
-	IonIcon,
-	IonNote,
 	IonContent,
-	IonSpinner,
-	IonRange,
-	IonLabel,
+	IonIcon,
 	IonItem,
 	IonItemDivider,
-	IonThumbnail,
-	IonReorderGroup,
+	IonLabel,
+	IonList,
+	IonNote,
+	IonRange,
 	IonReorder,
+	IonReorderGroup,
+	IonSpinner,
+	IonThumbnail,
 	ItemReorderCustomEvent,
 	popoverController,
 } from "@ionic/vue";
+import {
+	list as listIcon,
+	musicalNotes as musicalNotesIcon,
+	pause as pauseIcon,
+	play as playIcon,
+	playSkipForward as skipNextIcon,
+	playSkipBack as skipPreviousIcon,
+	volumeHigh as volumeHighIcon,
+	volumeLow as volumeLowIcon,
+} from "ionicons/icons";
 
 import MusicPlayerSongMenu from "@/components/MusicPlayerSongMenu.vue";
 import SongImg from "@/components/SongImg.vue";
@@ -176,11 +176,12 @@ import SongImg from "@/components/SongImg.vue";
 import { AnySong, useMusicPlayer } from "@/stores/music-player";
 
 import { getPlatform } from "@/utils/os";
+import { songTypeToDisplayName } from "@/utils/songs";
 import { secondsToMMSS } from "@/utils/time";
-import { getUniqueSongId, songTypeDisplayName } from "@/utils/songs";
-import { useIntersectionObserver } from "@vueuse/core";
-import { vOnLongPress } from "@vueuse/components";
+import { getUniqueObjectId } from "@/utils/vue";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { vOnLongPress } from "@vueuse/components";
+import { useIntersectionObserver } from "@vueuse/core";
 
 const musicPlayer = useMusicPlayer();
 const {
@@ -205,7 +206,7 @@ function reorderQueue(event: ItemReorderCustomEvent): void {
 	event.detail.complete();
 }
 
-async function handleHoldPopover(index: number, song: AnySong, event: Event) {
+async function handleHoldPopover(index: number, song: AnySong, event: Event): Promise<void> {
 	// Disable on non-touch devices
 	if (!navigator.maxTouchPoints) {
 		return;
@@ -216,7 +217,7 @@ async function handleHoldPopover(index: number, song: AnySong, event: Event) {
 	await createPopover(index, song, event);
 }
 
-async function createPopover(index: number, song: AnySong, event: Event) {
+async function createPopover(index: number, song: AnySong, event: Event): Promise<void> {
 	const popover = await popoverController.create({
 		component: MusicPlayerSongMenu,
 		event,
