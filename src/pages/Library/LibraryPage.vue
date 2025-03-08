@@ -3,16 +3,24 @@
 		<AppHeader>
 			<template #toolbar>
 				<ion-title>Library</ion-title>
-				<ion-progress-bar v-if="isLoading" type="indeterminate" />
 			</template>
 		</AppHeader>
 
 		<ion-content :fullscreen="true">
-			<ion-refresher slot="fixed" @ion-refresh="refreshLocalLibrary($event)">
-				<ion-refresher-content />
-			</ion-refresher>
+			<ion-item router-link="/library/playlists">
+				<ion-icon color="primary" :icon="playlistsIcon" class="padded-icon" size="large" slot="start" />
+				<ion-label>Playlists</ion-label>
+			</ion-item>
 
-			<SongItem v-for="song in songs" :key="getUniqueObjectId(song)" :song />
+			<ion-item router-link="/library/albums">
+				<ion-icon color="primary" :icon="albumsIcon" class="padded-icon" size="large" slot="start" />
+				<ion-label>Albums</ion-label>
+			</ion-item>
+
+			<ion-item router-link="/library/songs">
+				<ion-icon color="primary" :icon="songsIcon" class="padded-icon" size="large" slot="start" />
+				<ion-label>Songs</ion-label>
+			</ion-item>
 		</ion-content>
 
 		<AppFooter />
@@ -22,34 +30,17 @@
 <script setup lang="ts">
 import AppFooter from "@/components/AppFooter.vue";
 import AppHeader from "@/components/AppHeader.vue";
-import SongItem from "@/components/SongItem.vue";
-import { AnySong, useMusicPlayer } from "@/stores/music-player";
-import { getUniqueObjectId } from "@/utils/vue";
+
+import { IonContent, IonIcon, IonItem, IonLabel, IonPage, IonTitle } from "@ionic/vue";
 import {
-	IonContent,
-	IonPage,
-	IonProgressBar,
-	IonRefresher,
-	IonRefresherContent,
-	IonTitle,
-	RefresherCustomEvent,
-} from "@ionic/vue";
-import { onUpdated, ref } from "vue";
-
-const musicPlayer = useMusicPlayer();
-
-const songs = ref<AnySong[]>([]);
-const isLoading = ref(false);
-
-onUpdated(async () => {
-	isLoading.value = true;
-	songs.value = await musicPlayer.librarySongs();
-	isLoading.value = false;
-});
-
-async function refreshLocalLibrary(event: RefresherCustomEvent): Promise<void> {
-	await musicPlayer.refreshLibrarySongs();
-	songs.value = await musicPlayer.librarySongs();
-	await event.target.complete();
-}
+	albumsOutline as albumsIcon,
+	musicalNotesOutline as playlistsIcon,
+	musicalNoteOutline as songsIcon,
+} from "ionicons/icons";
 </script>
+
+<style>
+.padded-icon {
+	padding: 4px;
+}
+</style>

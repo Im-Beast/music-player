@@ -174,26 +174,6 @@ declare global {
 		}
 
 		/**
-		 * A resource object that represents a playlist.
-		 * @see https://developer.apple.com/documentation/applemusicapi/playlists-ulf
-		 */
-		interface Playlists {
-			/** The identifier for the album. */
-			id: string;
-			/** This value is always playlists. */
-			type: "playlists";
-			/** The relative location for the album resource. */
-			href: string;
-			/** The attributes for the playlist. */
-			attributes?: PlaylistsAttributes;
-
-			/** The relationships for the album. */
-			relationships?: MusicKit.ResourceRelationships;
-			/** The relationship views for the album. */
-			views?: MusicKit.ResourceViews;
-		}
-
-		/**
 		 * The attributes for a playlist resource.
 		 * @see https://developer.apple.com/documentation/applemusicapi/playlists/attributes
 		 */

@@ -6,9 +6,12 @@
 		v-on-long-press.prevent="[handleHoldPopover, { delay: 200 }]"
 		@contextmenu.prevent="createPopover"
 	>
-		<ion-thumbnail v-if="artwork" slot="start">
-			<SongImg :src="artwork" :alt="`Artwork for song '${title}' by ${artist}`" />
-		</ion-thumbnail>
+		<SongImg
+			slot="start"
+			v-if="artwork"
+			:src="artwork"
+			:alt="`Artwork for song '${title}' by ${formatArtists(artists)}`"
+		/>
 
 		<ion-label class="ion-text-nowrap">
 			<h2>{{ title ?? "Unknown title" }}</h2>
@@ -16,7 +19,7 @@
 				<ion-icon :icon="compassIcon" />
 				{{ songTypeToDisplayName(searchResult.type) }}
 				<ion-icon :icon="musicalNoteIcon" />
-				{{ artist }}
+				{{ formatArtists(artists) }}
 			</ion-note>
 		</ion-label>
 	</ion-item>
@@ -27,15 +30,15 @@ import SongImg from "@/components/SongImg.vue";
 import { createSongMenuPopover, handleHoldSongMenuPopover } from "@/components/SongMenu.vue";
 import type { SongSearchResult } from "@/services/MusicPlayer/MusicPlayerService";
 import { AnySong, useMusicPlayer } from "@/stores/music-player";
-import { songTypeToDisplayName } from "@/utils/songs";
-import { IonIcon, IonItem, IonLabel, IonNote, IonThumbnail } from "@ionic/vue";
+import { formatArtists, songTypeToDisplayName } from "@/utils/songs";
+import { IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
 import { vOnLongPress } from "@vueuse/components";
 import { compass as compassIcon, musicalNote as musicalNoteIcon } from "ionicons/icons";
 
 import SongSearchResultMenu from "./SongSearchResultMenu.vue";
 
 const { searchResult } = defineProps<{ searchResult: SongSearchResult }>();
-const { title, artist, artwork } = searchResult;
+const { title, artists, artwork } = searchResult;
 const { resolve, promise: song } = Promise.withResolvers<AnySong>();
 
 const musicPlayer = useMusicPlayer();
@@ -58,8 +61,12 @@ async function createPopover(event: Event): Promise<void> {
 
 <style scoped>
 ion-item {
-	& > ion-thumbnail {
+	& > .song-img {
 		pointer-events: none;
+		border-radius: 8px;
+
+		--img-width: auto;
+		--img-height: 56px;
 	}
 
 	& > ion-label {

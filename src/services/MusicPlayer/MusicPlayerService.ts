@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 
 import { useSongMetadata } from "@/stores/metadata";
-import { AnySong, SongImage, useMusicPlayer } from "@/stores/music-player";
+import { AnySong, Playlist, SongImage, useMusicPlayer } from "@/stores/music-player";
 
 import { Service } from "@/services/Service";
 import { Maybe } from "@/utils/types";
@@ -17,8 +17,8 @@ export interface SongSearchResult<Song extends AnySong = AnySong> {
 	type: Song["type"];
 
 	id: string;
+	artists: string[];
 	title?: string;
-	artist?: string;
 	album?: string;
 	artwork?: SongImage;
 }
@@ -234,6 +234,16 @@ export abstract class MusicPlayerService<
 			return songs;
 		});
 		return songs;
+	}
+
+	handleGetPlaylist?(url: URL): Maybe<Playlist> | Promise<Maybe<Playlist>>;
+	async getPlaylist(url: URL): Promise<Maybe<Playlist>> {
+		if (!this.handleGetPlaylist) {
+			throw new Error("This service does not support getPlaylist");
+		}
+
+		const playlist = await this.withErrorHandling(undefined, this.handleGetPlaylist, url);
+		return playlist;
 	}
 
 	async handleApplyMetadata(song: Song): Promise<void> {

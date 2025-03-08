@@ -1,6 +1,6 @@
 import { MaybeRefOrGetter } from "@vueuse/core";
 import { useIDBKeyval, UseIDBOptions } from "@vueuse/integrations/useIDBKeyval";
-import { Ref, watch } from "vue";
+import { onMounted, ref, Ref, watch } from "vue";
 
 export async function useIDBKeyvalAsync<T>(
 	key: IDBValidKey,
@@ -32,4 +32,14 @@ export function getUniqueObjectId(object: WeakKey): number {
 		uniqueIds.set(object, id);
 	}
 	return id;
+}
+
+export function usePresentingElement(): Ref<HTMLElement | undefined> {
+	const presentingElement = ref();
+
+	onMounted(() => {
+		presentingElement.value = document.querySelector("ion-router-outlet");
+	});
+
+	return presentingElement;
 }

@@ -10,7 +10,7 @@
 
 			<div class="details">
 				<h1 class="title ion-text-nowrap">{{ song.title }}</h1>
-				<h2 class="artist ion-text-nowrap">{{ song.artist }}</h2>
+				<h2 class="artist ion-text-nowrap">{{ formatArtists(song.artists) }}</h2>
 			</div>
 		</div>
 
@@ -66,6 +66,7 @@ export async function createSongMenuPopover(
 import SongImg from "@/components/SongImg.vue";
 import { AnySong } from "@/stores/music-player";
 import { isMobilePlatform } from "@/utils/os";
+import { formatArtists } from "@/utils/songs";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { IonContent, IonList, popoverController, PopoverOptions } from "@ionic/vue";
 import { vOnClickOutside } from "@vueuse/components";

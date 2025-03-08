@@ -1,8 +1,11 @@
-import { MusicKitSong } from "@/stores/music-player";
+import { MusicKitSong, Playlist, SongImage } from "@/stores/music-player";
 
 import { MusicPlayerService, SilentError } from "@/services/MusicPlayer/MusicPlayerService";
 
+import { useLocalImages } from "@/stores/local-images";
+import { generateUUID } from "@/utils/crypto";
 import { generateSongStyle } from "@/utils/songs";
+import { Maybe } from "@/utils/types";
 import { alertController } from "@ionic/vue";
 import { MusicKitAuthorizationService } from "../Authorization/MusicKitAuthorizationService";
 
@@ -10,17 +13,23 @@ export async function musicKitSong(
 	song: MusicKit.Songs | MusicKit.LibrarySongs,
 ): Promise<MusicKitSong> {
 	const attributes = song.attributes;
+
 	const artworkUrl = attributes?.artwork;
 	const artwork = artworkUrl && { url: MusicKit.formatArtworkURL(artworkUrl, 256, 256) };
+
+	const artists = attributes?.artistName ? [attributes?.artistName] : [];
+	const genres = attributes?.genreNames ?? [];
+
 	return {
 		type: "musickit",
 
 		id: song.id,
+		artists,
+		genres,
+
 		title: attributes?.name,
-		artist: attributes?.artistName,
 		album: attributes?.albumName,
 		duration: attributes?.durationInMillis && attributes?.durationInMillis / 1000,
-		genre: attributes?.genreNames?.[0],
 
 		artwork,
 		style: await generateSongStyle(artwork),
@@ -61,21 +70,90 @@ export class MusicKitMusicPlayerService extends MusicPlayerService<MusicKitSong>
 		return terms;
 	}
 
+	async handleGetPlaylist(url: URL): Promise<Maybe<Playlist>> {
+		let endpoint: string | undefined;
+
+		const { pathname } = url;
+
+		if (!url.origin.endsWith("music.apple.com")) {
+			return;
+		}
+
+		/// e.g.
+		// https://music.apple.com/library/playlist/<libraryPlaylistId>
+		if (pathname.includes("library")) {
+			endpoint = "/v1/me/library/playlists";
+		} else {
+			// https://music.apple.com/pl/playlist/heavy-rotation-mix/<storefrontPlaylistId>
+			// https://music.apple.com/pl/playlist/get-up-mix/<storefrontPlaylistId>
+			endpoint = "/v1/catalog/{{storefrontId}}/playlists";
+		}
+
+		const idStartIndex = pathname.lastIndexOf("/");
+		if (idStartIndex === -1) {
+			return;
+		}
+
+		const musicKitId = pathname.slice(idStartIndex + 1);
+		if (!musicKitId) {
+			return;
+		}
+
+		const response = await this.music!.api.music<MusicKit.PlaylistsResponse, MusicKit.PlaylistsQuery>(
+			`${endpoint}/${musicKitId}`,
+			{
+				extend: ["editorialArtwork", "editorialVideo", "offers"],
+				include: ["tracks"],
+			},
+		);
+		const playlist = response.data.data?.[0];
+
+		if (!playlist) {
+			return;
+		}
+
+		const id = generateUUID();
+		const title = playlist.attributes?.name ?? "Unknown title";
+		const artworkUrl = playlist.attributes?.artwork;
+
+		let artwork: Maybe<SongImage>;
+		if (artworkUrl) {
+			const localImages = useLocalImages();
+			const artworkBlob = await (await fetch(MusicKit.formatArtworkURL(artworkUrl))).blob();
+			await localImages.localImageManagementService.associateImage(id, artworkBlob);
+			artwork = { id };
+		}
+
+		const tracks = playlist.relationships?.tracks.data ?? [];
+		const songs = await Promise.all(tracks.map(musicKitSong));
+
+		return {
+			id,
+			importInfo: {
+				id: musicKitId,
+				type: "musickit",
+				info: url.toString(),
+			},
+			title,
+			artwork,
+			songs,
+		};
+	}
+
 	async handleSearchSongs(term: string, offset: number): Promise<MusicKitSong[]> {
 		const response = await this.music!.api.music<
 			MusicKit.SearchResponse,
 			MusicKit.CatalogSearchQuery
 		>("/v1/catalog/{{storefrontId}}/search", {
 			term,
-			types: ["songs"],
+			types: ["songs", "music-videos"],
 			limit: 25,
 			offset,
 		});
 
 		const songs = response?.data?.results?.songs?.data;
 		if (songs) {
-			const promises = songs.map((song) => musicKitSong(song));
-			return await Promise.all(promises);
+			return await Promise.all(songs.map(musicKitSong));
 		}
 		return [];
 	}
@@ -170,6 +248,10 @@ export class MusicKitMusicPlayerService extends MusicPlayerService<MusicKitSong>
 					break;
 			}
 		});
+
+		// NOTE: Required for Music Videos to work
+		const dummyVideoContainer = document.createElement("div");
+		music.videoContainerElement = dummyVideoContainer;
 	}
 
 	handleDeinitialization(): void {}

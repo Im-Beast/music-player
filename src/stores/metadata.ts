@@ -4,12 +4,12 @@ import { defineStore } from "pinia";
 import { reactive, Reactive, toRaw } from "vue";
 
 export interface MetadataOverride {
-	artist?: string;
+	artists?: string[];
 	album?: string;
 	title?: string;
 	duration?: number;
 	artwork?: SongImage;
-	genre?: string;
+	genres?: string[];
 }
 
 interface MetadataOverrides {

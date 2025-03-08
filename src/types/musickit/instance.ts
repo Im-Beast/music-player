@@ -97,6 +97,7 @@ declare global {
 			readonly developerToken: string;
 			musicUserToken?: string;
 			isAuthorized: boolean;
+			videoContainerElement?: HTMLElement;
 
 			readonly nowPlayingItem?: MediaItem;
 			/** The volume of audio playback, which is set directly on the HTMLMediaElement as the HTMLMediaElement.volume property. This value ranges between 0, which would be muting the audio, and 1, which would be the loudest possible. */

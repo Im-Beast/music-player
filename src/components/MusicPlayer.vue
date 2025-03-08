@@ -23,7 +23,7 @@
 						{{ currentSong.title }}
 					</h1>
 					<h2 id="artist" class="ion-text-nowrap">
-						{{ currentSong.artist }}
+						{{ formatArtists(currentSong.artists) }}
 					</h2>
 				</div>
 			</div>
@@ -44,14 +44,17 @@
 							@contextmenu.prevent="createPopover(i, song, $event)"
 							@click.self="queueIndex = i"
 						>
-							<ion-thumbnail slot="start">
-								<SongImg :src="song.artwork" :alt="`Artwork for song '${song.title}'`" />
-							</ion-thumbnail>
+							<SongImg
+								slot="start"
+								v-if="song.artwork"
+								:src="song.artwork"
+								:alt="`Artwork for song '${song.title}'`"
+							/>
 
 							<ion-label class="ion-text-nowrap">
 								<h2>{{ song.title }}</h2>
 								<ion-note>
-									{{ song.artist }}
+									{{ formatArtists(song.artists) }}
 								</ion-note>
 							</ion-label>
 
@@ -155,7 +158,6 @@ import {
 	IonReorder,
 	IonReorderGroup,
 	IonSpinner,
-	IonThumbnail,
 	ItemReorderCustomEvent,
 	popoverController,
 } from "@ionic/vue";
@@ -176,7 +178,7 @@ import SongImg from "@/components/SongImg.vue";
 import { AnySong, useMusicPlayer } from "@/stores/music-player";
 
 import { getPlatform } from "@/utils/os";
-import { songTypeToDisplayName } from "@/utils/songs";
+import { formatArtists, songTypeToDisplayName } from "@/utils/songs";
 import { secondsToMMSS } from "@/utils/time";
 import { getUniqueObjectId } from "@/utils/vue";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
@@ -460,9 +462,12 @@ useIntersectionObserver(
 						color: color-mix(in srgb, var(--fg-color) 80%, transparent);
 					}
 
-					& > ion-thumbnail {
-						--border-radius: 8px;
+					& > .song-img {
+						border-radius: 8px;
 						pointer-events: none;
+
+						--img-width: auto;
+						--img-height: 56px;
 					}
 
 					& > ion-button {

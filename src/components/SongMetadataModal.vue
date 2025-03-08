@@ -31,13 +31,14 @@
 			</ion-item>
 
 			<ion-item>
-				<ion-input
+				<!-- FIXME: multiple values
+				 <ion-input
 					label="Artist"
 					label-placement="floating"
 					:placeholder="song.artist ?? 'Rick Astley'"
 					:value="metadata.artist ?? song.artist"
 					@ion-input="onInput('artist', $event)"
-				/>
+				/> -->
 			</ion-item>
 
 			<ion-item>
@@ -51,13 +52,15 @@
 			</ion-item>
 
 			<ion-item>
-				<ion-input
-					label="Genre"
+				<!-- FIXME: multiple values
+				 <ion-input
+					label="Genres"
+					multiple
 					label-placement="floating"
 					:placeholder="song.genre ?? 'Dance-pop'"
 					:value="metadata.genre ?? song.genre"
 					@ion-input="onInput('genre', $event)"
-				/>
+				/> -->
 			</ion-item>
 		</ion-list>
 	</ion-content>

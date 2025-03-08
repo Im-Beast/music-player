@@ -101,11 +101,11 @@ async function parseLocalSong(buffer: Uint8Array, path: string, id: string): Pro
 
 	const { common, format } = metadata;
 
-	const artist = common.artist;
+	const artists = common.artists ?? [];
 	const album = common.album;
 	const title = common.title ?? path.split("\\").pop()!.split("/").pop();
 	const duration = format.duration;
-	const genre = common.genre?.[0];
+	const genres = common.genre ?? [];
 	let artwork: SongImage | undefined;
 	const coverImage = selectCover(common.picture);
 	if (coverImage) {
@@ -122,11 +122,11 @@ async function parseLocalSong(buffer: Uint8Array, path: string, id: string): Pro
 		type: "local",
 
 		id,
-		artist,
+		artists,
 		album,
 		title,
 		duration,
-		genre,
+		genres,
 
 		artwork,
 		style: await generateSongStyle(artwork),
@@ -208,7 +208,7 @@ export class LocalMusicPlayerService extends MusicPlayerService<LocalSong> {
 
 			// TODO: This might require some messing around with distance/threshold settings to not make it excessively loose
 			this.#fuse = new Fuse(allSongs, {
-				keys: ["title", "artist", "album", "genre"] satisfies (keyof LocalSong)[],
+				keys: ["title", "artists", "album", "genres"] satisfies (keyof LocalSong)[],
 			});
 		}
 

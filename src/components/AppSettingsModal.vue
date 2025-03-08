@@ -7,30 +7,32 @@
 			</ion-buttons>
 		</ion-toolbar>
 	</ion-header>
-	<ion-content class="ion-padding">
-		<ion-item v-for="service in MusicPlayerService.getRegisteredServices()" :key="service.type">
-			<ion-label class="platform-status">
-				<span class="platform-name">{{ songTypeToDisplayName(service.type) }}</span>
-			</ion-label>
+	<ion-content>
+		<ion-list inset>
+			<ion-item v-for="service in MusicPlayerService.getRegisteredServices()" :key="service.type">
+				<ion-label class="platform-status">
+					<span class="platform-name">{{ songTypeToDisplayName(service.type) }}</span>
+				</ion-label>
 
-			<ion-buttons>
-				<template v-if="service.enabled.value && service.authorization">
-					<ion-button
-						v-if="service.authorization.isAuthorized"
-						@click="service.authorization.unauthorize()"
-					>
-						Unauthorize
-					</ion-button>
-					<ion-button v-else @click="service.authorization.authorize()">Authorize</ion-button>
-				</template>
+				<ion-buttons>
+					<template v-if="service.enabled.value && service.authorization">
+						<ion-button
+							v-if="service.authorization.isAuthorized"
+							@click="service.authorization.unauthorize()"
+						>
+							Unauthorize
+						</ion-button>
+						<ion-button v-else @click="service.authorization.authorize()">Authorize</ion-button>
+					</template>
 
-				<ion-toggle
-					:checked="service.enabled.value"
-					@ion-change="service.enabled.value = !service.enabled.value"
-					:disabled="!service.available"
-				/>
-			</ion-buttons>
-		</ion-item>
+					<ion-toggle
+						:checked="service.enabled.value"
+						@ion-change="service.enabled.value = !service.enabled.value"
+						:disabled="!service.available"
+					/>
+				</ion-buttons>
+			</ion-item>
+		</ion-list>
 	</ion-content>
 </template>
 
@@ -54,6 +56,7 @@ import {
 	IonHeader,
 	IonItem,
 	IonLabel,
+	IonList,
 	IonTitle,
 	IonToggle,
 	IonToolbar,

@@ -2,6 +2,10 @@ import { useLocalImages } from "@/stores/local-images";
 import { AnySong, SongImage } from "@/stores/music-player";
 import { intensity } from "./color";
 
+export function formatArtists(artists?: string[]): string {
+	return artists?.join?.(" & ") || "Unknown artist(s)";
+}
+
 export function songTypeToDisplayName(type: AnySong["type"]): string {
 	switch (type) {
 		case "local":

@@ -9,6 +9,8 @@ import { LocalMusicPlayerService } from "@/services/MusicPlayer/LocalMusicPlayer
 import { MusicKitMusicPlayerService } from "@/services/MusicPlayer/MusicKitMusicPlayerService";
 import { YouTubeMusicPlayerService } from "@/services/MusicPlayer/YouTubeMusicPlayerService";
 import { getPlatform } from "@/utils/os";
+import { formatArtists } from "@/utils/songs";
+import { Maybe } from "@/utils/types";
 import { useLocalImages } from "./local-images";
 
 export type SongImage = { id: string; url?: never } | { id?: never; url: string };
@@ -16,11 +18,13 @@ export interface Song<Type extends string, Data = unknown> {
 	type: Type;
 
 	id: string;
+
+	artists: string[];
+	genres: string[];
+
 	title?: string;
-	artist?: string;
 	album?: string;
 	duration?: number;
-	genre?: string;
 
 	artwork?: SongImage;
 	style: {
@@ -38,8 +42,37 @@ export type LocalSong = Song<"local", { path: string }>;
 
 export type AnySong = MusicKitSong | YouTubeSong | LocalSong;
 
+export interface Playlist {
+	id: string;
+	importInfo?: {
+		id: string;
+		type: AnySong["type"];
+		info?: string;
+	};
+	title: string;
+	artwork?: SongImage;
+	songs: AnySong[];
+}
+
 export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	const localImages = useLocalImages();
+
+	const playlists = useIDBKeyval<Playlist[]>("playlists", []);
+
+	function addPlaylist(playlist: Playlist): void {
+		playlists.data.value.push(playlist);
+	}
+
+	function removePlaylist(id: string): void {
+		const index = playlists.data.value.findIndex((playlist) => playlist.id === id);
+		if (index !== -1) {
+			playlists.data.value.splice(index, 1);
+		}
+	}
+
+	function getPlaylist(id: string): Maybe<Playlist> {
+		return playlists.data.value.find((playlist) => playlist.id === id);
+	}
 
 	MusicPlayerService.registerService(new MusicKitMusicPlayerService());
 	MusicPlayerService.registerService(new YouTubeMusicPlayerService());
@@ -114,6 +147,11 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	const hasNext = computed(() => queuedSongs.data.value.length > queueIndex.value + 1);
 
 	const timeRemaining = computed(() => duration.value * (1 - progress.value));
+
+	function setQueue(songs: AnySong[]): void {
+		queuedSongs.data.value = songs;
+		queueIndex.value = 0;
+	}
 
 	function addToQueue(song: AnySong, index = queuedSongs.data.value.length): void {
 		queuedSongs.data.value.splice(index, 0, song);
@@ -211,7 +249,7 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 						hasSkipForward: false,
 
 						track: currentSong?.title ?? "",
-						artist: currentSong?.artist ?? "",
+						artist: formatArtists(currentSong?.artists),
 						album: currentSong?.album ?? "",
 
 						// FIXME: Local artworks
@@ -285,7 +323,7 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 
 			navigator.mediaSession.metadata = new window.MediaMetadata({
 				title: song.title,
-				artist: song.artist,
+				artist: formatArtists(song.artists),
 				album: song.album,
 				artwork: song.artwork && [{ src: (await localImages.getSongImageUrl(song.artwork))! }],
 			});
@@ -326,8 +364,14 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 		duration,
 		timeRemaining,
 
+		playlists: computed(() => playlists.data.value),
+		addPlaylist,
+		removePlaylist,
+		getPlaylist,
+
 		queuedSongs: computed(() => queuedSongs.data.value),
 		queueIndex,
+		setQueue,
 		addToQueue,
 		removeFromQueue,
 		moveQueueItem,

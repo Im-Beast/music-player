@@ -2,22 +2,26 @@ import BG, { buildURL, WebPoSignalOutput } from "bgutils-js";
 import Innertube, { YTMusic, YTNodes } from "youtubei.js/web";
 
 import { MusicPlayerService, SongSearchResult } from "@/services/MusicPlayer/MusicPlayerService";
-import type { YouTubeSong } from "@/stores/music-player";
+import type { Playlist, SongImage, YouTubeSong } from "@/stores/music-player";
 
+import { useLocalImages } from "@/stores/local-images";
+import { generateUUID } from "@/utils/crypto";
 import { getPlatform, isElectron } from "@/utils/os";
 import { generateSongStyle } from "@/utils/songs";
+import { Maybe } from "@/utils/types";
 
 export function youtubeSongSearchResult(
 	node: YTNodes.MusicResponsiveListItem,
 ): SongSearchResult<YouTubeSong> {
-	const artwork = node.thumbnails?.[0] && { url: createCapacitorProxyUrl(node.thumbnails[0].url) };
+	const artwork = node.thumbnails?.[0] && { url: node.thumbnails[0].url };
+	const artists = (node.artists ?? node.authors)?.map(({ name }) => name) ?? [];
 
 	return {
 		type: "youtube",
 		id: node.id!,
 		title: node.title,
 		album: node.album?.name,
-		artist: node.artists?.[0]?.name,
+		artists,
 		artwork,
 	};
 }
@@ -34,16 +38,19 @@ export async function youtubeSong(
 
 	const artwork = thumbnail?.[0] && { url: createCapacitorProxyUrl(thumbnail[0].url) };
 	const album = searchResult?.album ?? tags?.at(-2);
+	const artists = searchResult?.artists ?? (author ? [author] : []);
 
 	return {
 		type: "youtube",
 
 		id,
-		title,
-		artist: author,
-		duration,
-		album,
+		artists,
 		// TODO: genre
+		genres: [],
+
+		title,
+		album,
+		duration,
 
 		artwork,
 		style: await generateSongStyle(artwork),
@@ -222,12 +229,60 @@ export class YouTubeMusicPlayerService extends MusicPlayerService<YouTubeSong> {
 		const hints: string[] = [];
 		for (const section of sections) {
 			for (const suggestion of section.contents) {
-				if (suggestion.is(YTNodes.SearchSuggestion)) {
-					hints.push(suggestion.suggestion.toString());
-				}
+				if (!suggestion.is(YTNodes.SearchSuggestion)) continue;
+				hints.push(suggestion.suggestion.toString());
 			}
 		}
 		return hints;
+	}
+
+	async handleGetPlaylist(idOrUrl: URL): Promise<Maybe<Playlist>> {
+		const youtubeId = idOrUrl.searchParams.get("list");
+		if (!youtubeId) {
+			return;
+		}
+
+		let playlist = await this.innertube!.music.getPlaylist(youtubeId);
+		if (!playlist.contents) {
+			return;
+		}
+
+		const id = generateUUID();
+		const header = playlist.header?.as(YTNodes.MusicResponsiveHeader);
+		const title = header?.title?.toString() ?? "Unknown title";
+		const thumbnail = header?.thumbnail?.contents?.[0];
+
+		let artwork: Maybe<SongImage>;
+		if (thumbnail) {
+			const localImages = useLocalImages();
+			const artworkBlob = await (await fetch(thumbnail.url)).blob();
+			await localImages.localImageManagementService.associateImage(id, artworkBlob);
+			artwork = { id };
+		}
+
+		const songs = [];
+		while (playlist?.contents) {
+			for (const node of playlist.contents) {
+				if (!node.is(YTNodes.MusicResponsiveListItem)) continue;
+				const searchResult = youtubeSongSearchResult(node);
+				const song = await this.getSongFromSearchResult(searchResult);
+				songs.push(song);
+			}
+
+			if (!playlist.has_continuation) break;
+			playlist = await playlist.getContinuation();
+		}
+
+		return {
+			id,
+			importInfo: {
+				id: youtubeId,
+				type: "youtube",
+			},
+			title,
+			artwork,
+			songs,
+		};
 	}
 
 	handleLibrarySongs(_offset: number): YouTubeSong[] {
