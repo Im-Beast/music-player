@@ -14,8 +14,8 @@ export type SongEditEvent = Maybe<{
 <script lang="ts" setup>
 import { computed, ref, toRaw, useTemplateRef } from "vue";
 
+import LocalImagePicker from "@/components/LocalImagePicker.vue";
 import MultiValueInput from "@/components/MultiValueInput.vue";
-import SongImagePicker from "@/components/SongImagePicker.vue";
 import {
 	actionSheetController,
 	IonButton,
@@ -59,7 +59,6 @@ const canEdit = computed(() => !!title.value && modified.value);
 function edit(): void {
 	if (!canEdit.value) return;
 
-	console.log(artwork.value);
 	emit("change", {
 		title: title.value,
 		artists: toRaw(artists.value),
@@ -139,7 +138,7 @@ async function canDismiss(reason?: "editedSong" | "resetSong"): Promise<boolean>
 		</ion-header>
 
 		<ion-content id="edit-song-content" :fullscreen="true">
-			<SongImagePicker
+			<LocalImagePicker
 				:id="song.id"
 				:id-out="`override-${song.id}`"
 				@input="((artwork = $event.value), (modified = true))"

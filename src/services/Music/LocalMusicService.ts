@@ -1,3 +1,6 @@
+import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval.mjs";
+import { computed } from "vue";
+
 import Fuse from "fuse.js";
 import { parseBuffer, selectCover } from "music-metadata";
 
@@ -9,13 +12,17 @@ import { LocalSong } from "@/stores/music-player";
 import { MusicService, MusicServiceEvent } from "@/services/Music/MusicService";
 
 import { base64StringToBuffer } from "@/utils/buffer";
+import { generateUUID } from "@/utils/crypto";
 import { getPlatform } from "@/utils/os";
 import { audioMimeTypeFromPath } from "@/utils/path";
 import { generateSongStyle } from "@/utils/songs";
 import { Maybe } from "@/utils/types";
-import { useIDBKeyvalAsync } from "@/utils/vue";
 
-const localSongs = useIDBKeyvalAsync<LocalSong[]>("localMusicSongs", []);
+const $localSongs = useIDBKeyval<LocalSong[]>("localMusicSongs", []);
+const localSongs = computed<LocalSong[]>({
+	get: () => $localSongs.data.value,
+	set: (value) => ($localSongs.data.value = value),
+});
 
 async function* getSongPaths(): AsyncGenerator<{ filePath: string; id?: string }> {
 	switch (getPlatform()) {
@@ -124,6 +131,10 @@ async function parseLocalSong(buffer: Uint8Array, path: string, id: string): Pro
 	return {
 		type: "local",
 
+		available: true,
+		// TODO: Try to find a way to classify local files as explicit
+		explicit: false,
+
 		id,
 		artists,
 		album,
@@ -139,12 +150,10 @@ async function parseLocalSong(buffer: Uint8Array, path: string, id: string): Pro
 }
 
 async function getLocalSongs(clearCache = false): Promise<LocalSong[]> {
-	const songs = await localSongs;
-
 	if (clearCache) {
-		songs.value = [];
-	} else if (songs.value.length) {
-		return songs.value;
+		localSongs.value = [];
+	} else if (localSongs.value.length) {
+		return localSongs.value;
 	}
 
 	// Required for Documents folder to show up in Files
@@ -173,14 +182,14 @@ async function getLocalSongs(clearCache = false): Promise<LocalSong[]> {
 			if (getPlatform() !== "android" && !audioMimeTypeFromPath(filePath)) continue;
 
 			const data = await readSongFile(filePath);
-			const song = await parseLocalSong(data, filePath, id ?? filePath);
-			songs.value.push(song);
+			const song = await parseLocalSong(data, filePath, id ?? generateUUID());
+			localSongs.value.push(song);
 		}
 	} catch (error) {
 		console.log("Errored on getSongs:", error instanceof Error ? error.message : error);
 	}
 
-	return songs.value;
+	return localSongs.value;
 }
 
 export class LocalMusicService extends MusicService<LocalSong> {
@@ -229,7 +238,7 @@ export class LocalMusicService extends MusicService<LocalSong> {
 		}
 	}
 
-	handleGetSongFromSearchResult(searchResult: LocalSong): LocalSong {
+	handleGetSongFromPreview(searchResult: LocalSong): LocalSong {
 		return searchResult;
 	}
 
@@ -243,17 +252,19 @@ export class LocalMusicService extends MusicService<LocalSong> {
 		await getLocalSongs(true);
 	}
 
-	async handleGetSong(filePath: string): Promise<LocalSong> {
-		const data = await readSongFile(filePath);
-		const song = await parseLocalSong(data, filePath, filePath);
-		return song;
+	handleGetSong(songId: string): Maybe<LocalSong> {
+		const cached = this.getCached<LocalSong>(songId);
+		if (cached) return cached;
+
+		const song = localSongs.value.find((song) => song.id === songId);
+		return song && this.cache(song);
 	}
 
 	async handleRefreshSong(song: LocalSong): Promise<LocalSong> {
 		const filePath = song.data.path;
 		const data = await readSongFile(filePath);
-		const refreshed = await parseLocalSong(data, filePath, song.id ?? filePath);
-		return refreshed;
+		const refreshed = await parseLocalSong(data, filePath, song.id);
+		return this.cache(refreshed);
 	}
 
 	handleInitialization(): void {

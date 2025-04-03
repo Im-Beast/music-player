@@ -19,11 +19,13 @@ import { computed, ref, useTemplateRef, watch } from "vue";
 const {
 	title,
 	backButton,
-	showHeader = true,
+	showPageHeader = true,
+	showContentHeader = true,
 } = defineProps<{
 	title?: string;
 	backButton?: string;
-	showHeader?: boolean;
+	showPageHeader?: boolean;
+	showContentHeader?: boolean;
 }>();
 
 const slots = defineSlots<{
@@ -65,7 +67,7 @@ watch(bounding.height, (height) => {
 <template>
 	<ion-page id="app-page" :style="{ '--header-height': `${headerHeight}px` }">
 		<Transition name="slide">
-			<ion-header v-if="showHeader" translucent>
+			<ion-header v-if="showPageHeader" translucent>
 				<slot name="header-leading" />
 
 				<slot name="toolbar">
@@ -98,7 +100,7 @@ watch(bounding.height, (height) => {
 
 		<ion-content fullscreen>
 			<Transition name="slide">
-				<ion-header ref="header" v-if="showHeader && title" collapse="condense">
+				<ion-header ref="header" v-if="showContentHeader && title" collapse="condense">
 					<slot name="header-leading" />
 
 					<slot name="toolbar">

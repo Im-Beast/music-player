@@ -142,7 +142,7 @@ ion-tab-bar {
 	--padding-start: 12px;
 	--padding-end: 12px;
 
-	& > .song-img {
+	& > .local-img {
 		transition: var(--context-menu-transition);
 
 		--img-border-radius: 12px;
@@ -221,7 +221,7 @@ ion-tab-bar {
 		visibility: hidden;
 	}
 
-	& > .song-img {
+	& > .local-img {
 		pointer-events: none;
 
 		--img-border-radius: 8px;

@@ -433,12 +433,12 @@ function dismiss(): void {
 		min-height: calc(var(--modal-handle-top) + 80px);
 		max-height: calc(var(--modal-handle-top) + 80px);
 
-		& > .song-img,
+		& > .local-img,
 		& > #song-info {
 			top: calc(var(--modal-handle-top) + 6px);
 		}
 
-		& > .song-img {
+		& > .local-img {
 			position: absolute;
 			z-index: 100;
 			left: 24px;
@@ -530,7 +530,7 @@ function dismiss(): void {
 		flex-direction: column;
 		height: 100%;
 
-		& > .song-img {
+		& > .local-img {
 			justify-self: center;
 			align-self: center;
 			margin-block: auto;

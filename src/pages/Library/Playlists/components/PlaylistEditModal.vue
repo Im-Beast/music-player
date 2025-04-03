@@ -10,7 +10,7 @@ export interface PlaylistEditEvent {
 <script lang="ts" setup>
 import { computed, ref, toRaw, useTemplateRef } from "vue";
 
-import SongImagePicker from "@/components/SongImagePicker.vue";
+import LocalImagePicker from "@/components/LocalImagePicker.vue";
 import {
 	actionSheetController,
 	IonButton,
@@ -101,7 +101,7 @@ async function canDismiss(reason?: "editedPlaylist"): Promise<boolean> {
 		</ion-header>
 
 		<ion-content id="edit-playlist-content" :fullscreen="true">
-			<SongImagePicker :id="playlist.id" @input="((artwork = $event.value), (modified = true))" />
+			<LocalImagePicker :id="playlist.id" @input="((artwork = $event.value), (modified = true))" />
 
 			<ion-list>
 				<ion-item>

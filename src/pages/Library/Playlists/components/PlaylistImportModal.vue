@@ -214,7 +214,7 @@ async function canDismiss(data?: "importedPlaylist"): Promise<boolean> {
 		margin-top: 0;
 	}
 
-	& > .song-img {
+	& > .local-img {
 		margin-inline: auto;
 
 		--img-height: 192px;

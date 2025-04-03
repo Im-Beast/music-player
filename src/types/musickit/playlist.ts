@@ -16,8 +16,8 @@ declare global {
 		 * @see https://developer.apple.com/documentation/applemusicapi/playlistsresponse
 		 */
 		interface PlaylistsResponse {
-			/** The LibrarySongs included in the response for the request. */
-			data: MusicKit.Playlists[];
+			/** The Playlists included in the response for the request. */
+			data: Playlists[];
 		}
 
 		/**
@@ -88,7 +88,7 @@ declare global {
 		}
 
 		/**
-		 * A relationship from the playlist to its tracks.
+		 * A relationship from the album to its tracks.
 		 * @see https://developer.apple.com/documentation/applemusicapi/playlists/relationships-data.dictionary/playliststracksrelationship
 		 */
 		interface PlaylistsTracksRelationship {

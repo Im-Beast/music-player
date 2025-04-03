@@ -37,7 +37,42 @@ declare global {
 			attributes?: LibrarySongsAttributes;
 
 			/** The relationships for the library song. */
-			relationships?: MusicKit.ResourceRelationships;
+			relationships?: MusicKit.LibrarySongsRelationships;
+		}
+
+		/**
+		 * The relationships for a song resource.
+		 * @see https://developer.apple.com/documentation/applemusicapi/librarysongs/relationships-data.dictionary
+		 */
+		interface LibrarySongsRelationships {
+			/**
+			 * The artists associated with the song. By default, artists includes identifiers only.
+			 * Fetch limits: 10 default, 10 maximum
+			 */
+			artists: MusicKit.SongsArtistsRelationships;
+			/**
+			 * The genres associated with the song. By default, genres is not included.
+			 * Fetch limits: None
+			 */
+			genres: MusicKit.SongsGenresRelationships;
+			/**
+			 * The song in the Apple Music catalog the library song is associated with, when known.
+			 * Fetch limits: None.
+			 */
+			catalog: LibrarySongsCatalogRelationship;
+		}
+
+		/**
+		 * A relationship from the library song to its associated catalog content.
+		 * @see https://developer.apple.com/documentation/applemusicapi/librarysongs/relationships-data.dictionary/librarysongscatalogrelationship
+		 */
+		interface LibrarySongsCatalogRelationship {
+			/* A relative location for the relationship. */
+			href?: string;
+			/* A relative cursor to fetch the next paginated collection of resources in the relationship if more exist. */
+			next?: string;
+			/** The song from the Apple Music catalog associated with the library song, if any. */
+			data: MusicKit.Songs[];
 		}
 
 		/**

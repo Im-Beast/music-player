@@ -11,10 +11,18 @@ import { getPlatform } from "@/utils/os";
 import { formatArtists } from "@/utils/songs";
 import { Maybe } from "@/utils/types";
 
+export interface Artist {
+	id?: string;
+	name: string;
+}
+
 export interface Song<Type extends string, Data = unknown> {
 	type: Type;
 
 	id: string;
+
+	available: boolean;
+	explicit: boolean;
 
 	artists: string[];
 	genres: string[];
@@ -33,22 +41,40 @@ export interface Song<Type extends string, Data = unknown> {
 	data: Data;
 }
 
-export type MusicKitSong = Song<"musickit">;
-export type YouTubeSong = Song<"youtube">;
+export type SongPreview<Song extends AnySong = AnySong> = Pick<Song, "type" | "id" | "artists"> &
+	Partial<Song>;
+
+export type MusicKitSong = Song<"musickit", { catalogId: string }>;
+export type YouTubeSong = Song<"youtube", { albumId?: string }>;
 export type LocalSong = Song<"local", { path: string }>;
 
 export type AnySong = MusicKitSong | YouTubeSong | LocalSong;
 
 export interface Playlist {
 	id: string;
+	title: string;
+	artwork?: LocalImage;
+	songs: AnySong[];
+
 	importInfo?: {
 		id: string;
 		type: AnySong["type"];
 		info?: string;
 	};
+}
+
+export interface DiscSong {
+	discNumber?: number | string;
+	trackNumber?: number | string;
+	song: SongPreview;
+}
+
+export interface Album {
+	id: string;
 	title: string;
 	artwork?: LocalImage;
-	songs: AnySong[];
+	artists: Artist[];
+	songs: DiscSong[];
 }
 
 export const useMusicPlayer = defineStore("MusicPlayer", () => {
@@ -71,7 +97,6 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	});
 
 	// Automatically change songs
-
 	let abortController = new AbortController();
 	watch(currentQueueSong, async () => {
 		abortController.abort();

@@ -1,4 +1,4 @@
-import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval";
+import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval.mjs";
 import { defineStore } from "pinia";
 import { toRaw } from "vue";
 

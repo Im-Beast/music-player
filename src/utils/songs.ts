@@ -2,14 +2,17 @@ import { LocalImage, useLocalImages } from "@/stores/local-images";
 import { AnySong } from "@/stores/music-player";
 
 export function formatArtists(artists?: string[]): string {
-	return artists?.join?.(" & ") || "Unknown artist(s)";
+	if (!artists) {
+		return "Unknown artist(s)";
+	}
+	return artists.join(" & ");
 }
 
 export function formatGenres(genres?: string[]): string {
 	return genres?.join(", ") || "Unknown genre(s)";
 }
 
-export function songTypeToDisplayName(type: AnySong["type"]): string {
+export function songTypeToDisplayName(type?: AnySong["type"]): string {
 	switch (type) {
 		case "local":
 			return "Local";
@@ -17,6 +20,8 @@ export function songTypeToDisplayName(type: AnySong["type"]): string {
 			return "Apple Music";
 		case "youtube":
 			return "YouTube";
+		default:
+			return "Unknown service";
 	}
 }
 

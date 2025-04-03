@@ -1,13 +1,13 @@
 import { defineStore } from "pinia";
 import { computed, reactive } from "vue";
 
-import { MusicService, SongSearchResult } from "@/services/Music/MusicService";
+import { MusicService } from "@/services/Music/MusicService";
 
 import { LocalMusicService } from "@/services/Music/LocalMusicService";
 import { MusicKitMusicService } from "@/services/Music/MusicKitMusicService";
 import { YouTubeMusicService } from "@/services/Music/YouTubeMusicService";
 
-import { AnySong } from "@/stores/music-player";
+import { Album, AnySong, SongPreview } from "@/stores/music-player";
 
 import { Maybe } from "@/utils/types";
 
@@ -44,7 +44,7 @@ export const useMusicServices = defineStore("MusicServices", () => {
 		term: string,
 		offset = 0,
 		options?: { signal: AbortSignal },
-	): AsyncGenerator<SongSearchResult> {
+	): AsyncGenerator<SongPreview> {
 		for (const service of enabledServices.value) {
 			yield* service.searchSongs(term, offset, options);
 		}
@@ -63,14 +63,22 @@ export const useMusicServices = defineStore("MusicServices", () => {
 		return await getService(song.type)?.refreshSong(song);
 	}
 
-	async function getSongFromSearchResult(searchResult: SongSearchResult): Promise<AnySong> {
+	async function getSongFromPreview(searchResult: SongPreview): Promise<AnySong> {
 		const service = getService(searchResult.type)!;
-		const song = await service.getSongFromSearchResult(searchResult);
+		const song = await service.getSongFromPreview(searchResult);
 		return song;
 	}
 
 	async function getSong(type: AnySong["type"], id: string): Promise<Maybe<AnySong>> {
 		return await getService(type)?.getSong(id);
+	}
+
+	async function getAlbum(type: AnySong["type"], id: string): Promise<Maybe<Album>> {
+		return await getService(type)?.getAlbum(id);
+	}
+
+	async function getSongsAlbum(song: AnySong): Promise<Maybe<Album>> {
+		return await getService(song.type)?.getSongsAlbum(song);
 	}
 	// #endregion
 
@@ -92,6 +100,8 @@ export const useMusicServices = defineStore("MusicServices", () => {
 		refreshLibrarySongs,
 		refreshSong,
 		getSong,
-		getSongFromSearchResult,
+		getSongFromPreview,
+		getAlbum,
+		getSongsAlbum,
 	};
 });

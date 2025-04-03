@@ -1,5 +1,5 @@
 import { useLocalStorage } from "@vueuse/core";
-import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval";
+import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval.mjs";
 import { defineStore } from "pinia";
 import { computed, ref, toRaw } from "vue";
 
@@ -16,23 +16,24 @@ interface QueueSong {
 
 export const useMusicPlayerState = defineStore("MusicPlayerState", () => {
 	// #region Playlist
-	const $playlists = useIDBKeyval<Playlist[]>("playlists", []);
+	const $playlists = useIDBKeyval<Record<string, Playlist>>("playlists", {});
 	const playlists = computed(() => $playlists.data.value);
 
 	function addPlaylist(playlist: Playlist): void {
-		playlists.value.push(playlist);
+		playlists.value[playlist.id] = playlist;
 	}
 
 	function removePlaylist(id: string): void {
-		const index = playlists.value.findIndex((playlist) => playlist.id === id);
-		if (index !== -1) {
-			playlists.value.splice(index, 1);
-		}
+		delete playlists.value[id];
 	}
 
 	function getPlaylist(id: string): Maybe<Playlist> {
-		return playlists.value.find((playlist) => playlist.id === id);
+		return playlists.value[id];
 	}
+	// #endregion
+
+	// #region Album
+
 	// #endregion
 
 	// #region Queue
@@ -56,8 +57,18 @@ export const useMusicPlayerState = defineStore("MusicPlayerState", () => {
 		queue.value = songs.map(songToQueueSong);
 	}
 
+	function shuffleQueue(): void {
+		// TODO: Add a way to "smart shuffle" a queue, trying to omit having songs from the same album in a row
+		queue.value.sort(() => Math.random() - 0.5);
+	}
+
 	async function addToQueue(song: AnySong, index = queue.value.length): Promise<void> {
 		queue.value.splice(index, 0, songToQueueSong(song));
+		await loadingCounters.queueChange.onLoaded();
+	}
+
+	async function insertIntoQueue(songs: AnySong[], index = queue.value.length): Promise<void> {
+		queue.value.splice(index, 0, ...songs.map(songToQueueSong));
 		await loadingCounters.queueChange.onLoaded();
 	}
 
@@ -135,7 +146,9 @@ export const useMusicPlayerState = defineStore("MusicPlayerState", () => {
 		currentQueueSong,
 		currentSong,
 		setQueue,
+		shuffleQueue,
 		addToQueue,
+		insertIntoQueue,
 		removeFromQueue,
 		moveQueueItem,
 
