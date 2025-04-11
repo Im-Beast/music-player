@@ -1,5 +1,5 @@
 import { MaybeRefOrGetter } from "@vueuse/core";
-import { useIDBKeyval, UseIDBOptions } from "@vueuse/integrations/useIDBKeyval";
+import { useIDBKeyval, UseIDBOptions } from "@vueuse/integrations/useIDBKeyval.mjs";
 import { computed, onMounted, ref, Ref, watch } from "vue";
 
 export async function useIDBKeyvalAsync<T>(

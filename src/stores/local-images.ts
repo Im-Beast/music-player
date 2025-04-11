@@ -1,4 +1,4 @@
-import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval";
+import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval.mjs";
 import { defineStore } from "pinia";
 
 import { EitherType, Maybe } from "@/utils/types";
@@ -9,9 +9,21 @@ interface ImageData {
 	type: string;
 }
 
-type LocalImageInfo = { [id in string]?: ImageData };
+interface IndirectImageData {
+	key: string;
+}
+
+type LocalImageInfo = { [id in string]?: IndirectImageData | ImageData };
 
 export type LocalImage = EitherType<[{ id: string }, { url: string }]>;
+
+function isIndirect(imageData?: ImageData | IndirectImageData): imageData is IndirectImageData {
+	return imageData ? "key" in imageData : false;
+}
+
+function isDirect(imageData?: ImageData | IndirectImageData): imageData is ImageData {
+	return imageData ? !("key" in imageData) : false;
+}
 
 export const useLocalImages = defineStore("LocalImages", () => {
 	const localImageInfo = useIDBKeyval<LocalImageInfo>("localImageInfo", {});
@@ -25,6 +37,20 @@ export const useLocalImages = defineStore("LocalImages", () => {
 		log(`Cleaned up ${id}`);
 		blobUrls.delete(id);
 	});
+
+	function unregisterImage(id: string): boolean {
+		const cached = blobUrls.get(id);
+		if (!cached) return false;
+
+		log(`Unregister ${id}`);
+		return registry.unregister(cached[1]);
+	}
+
+	function removeImage(id: string): void {
+		log(`Removing ${id}`);
+		delete localImageInfo.data.value[id];
+		unregisterImage(id);
+	}
 
 	function registerImage(id: string, imageData: ImageData, unregister = true): string {
 		log(`Register ${id}`);
@@ -41,14 +67,6 @@ export const useLocalImages = defineStore("LocalImages", () => {
 		blobUrls.set(id, [blobUrl, blobRef]);
 		registry.register(blob, id, blobRef);
 		return blobUrl;
-	}
-
-	function unregisterImage(id: string): boolean {
-		const cached = blobUrls.get(id);
-		if (!cached) return false;
-
-		log(`Unregister ${id}`);
-		return registry.unregister(cached[1]);
 	}
 
 	async function associateImage(
@@ -140,15 +158,61 @@ export const useLocalImages = defineStore("LocalImages", () => {
 
 		const imageData = localImageInfo.data.value?.[id];
 		if (imageData) {
+			if (isIndirect(imageData)) {
+				log(`getBlobUrl -> indirect (${imageData.key})`);
+				return getBlobUrl(imageData.key);
+			}
 			return registerImage(id, imageData);
 		}
 
 		log("getBlobUrl -> image missing");
 	}
 
+	// Deduplicate images
+	// Only one original copy is kept, and duplicates are pointer to that image
+	function deduplicate(): void {
+		log("Deduplicate");
+		console.time("Deduplicating images");
+
+		const images = Object.entries(localImageInfo.data.value).filter(
+			(entry): entry is [string, ImageData] => isDirect(entry[1]),
+		);
+
+		const byteLengthGropped = Map.groupBy(images, ([_key, value]) => value.buffer.byteLength);
+
+		for (const group of byteLengthGropped.values()) {
+			if (group.length === 1) continue;
+
+			// While its probably already safe enough to assume
+			// that no one image will have the exact same size
+			// we group it by a random one pixel to be extra sure
+			const pixelGrouped = Map.groupBy(group, ([_key, value]) => {
+				const byte = Math.floor(value.buffer.byteLength / 3);
+				const view = new Uint8Array(value.buffer.slice(byte, 1));
+				return view[0];
+			});
+
+			for (const pixelGroup of pixelGrouped.values()) {
+				if (pixelGroup.length === 1) continue;
+
+				const indirectImageData: IndirectImageData = { key: pixelGroup[0]![0]! };
+				for (let i = 1; i < pixelGroup.length; i++) {
+					const [key] = pixelGroup[i]!;
+					// Remove duplicated data
+					removeImage(key);
+					// Link the images
+					localImageInfo.data.value[key] = indirectImageData;
+				}
+			}
+		}
+
+		console.timeEnd("Deduplicating images");
+	}
+
 	return {
 		associateImage,
 		getUrl,
 		getBlobUrl,
+		deduplicate,
 	};
 });

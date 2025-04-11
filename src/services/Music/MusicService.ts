@@ -2,16 +2,19 @@
 import { alertController } from "@ionic/vue";
 import { computed, ref } from "vue";
 
-import { useMusicPlayer, type AnySong, type Playlist } from "@/stores/music-player";
 import { useMusicPlayerState } from "@/stores/music-state";
 
 import { AuthorizationService } from "@/services/Authorization/AuthorizationService";
 import { Service } from "@/services/Service";
+
+import { useLocalImages } from "@/stores/local-images";
+import { useSongMetadata } from "@/stores/metadata";
+import { useMusicPlayer } from "@/stores/music-player";
 import { useMusicServices } from "@/stores/music-services";
 
-import { LocalImage } from "@/stores/local-images";
-import { useSongMetadata } from "@/stores/metadata";
 import { Maybe } from "@/utils/types";
+
+import { Album, AlbumPreview, Artist, Playlist, Song, SongPreview, SongType } from "./objects";
 
 export interface MusicServiceState {
 	enabled: boolean;
@@ -32,30 +35,21 @@ export class MusicServiceEvent<Type extends MusicServiceEventType> extends Custo
 	}
 }
 
-export interface SongSearchResult<Song extends AnySong = AnySong> {
-	type: Song["type"];
-
-	id: string;
-	artists: string[];
-	genres: string[];
-	title?: string;
-	album?: string;
-	artwork?: LocalImage;
-	duration?: number;
-}
-
 export class SilentError extends Error {
 	constructor(message?: string, options?: ErrorOptions) {
 		super(message, options);
 	}
 }
 
+export interface Identifiable {
+	id: string;
+}
+
 export abstract class MusicService<
-	Song extends AnySong = AnySong,
-	const SearchResult extends SongSearchResult<Song> = SongSearchResult<Song>,
+	Type extends SongType = SongType,
 > extends Service<MusicServiceState> {
 	abstract logName: string;
-	abstract type: Song["type"];
+	abstract type: Type;
 	abstract available: boolean;
 
 	authorization?: AuthorizationService;
@@ -66,9 +60,7 @@ export abstract class MusicService<
 
 	initialized = false;
 	initialPlayed = false;
-	song?: Song;
-
-	#cache = new Map<string, Song>();
+	song?: Song<Type>;
 
 	#enabled = ref(false);
 	enabled = computed({
@@ -133,22 +125,6 @@ export abstract class MusicService<
 		this.#enabled.value = false;
 		await this.deinitialize();
 		await this.saveState({ enabled: false });
-	}
-
-	cacheSong(song: Song): Song {
-		this.#cache.set(song.id, song);
-		return song;
-	}
-
-	cacheSongPromise(song: Promise<Song>): Promise<Song> {
-		return song.then((song) => {
-			this.#cache.set(song.id, song);
-			return song;
-		});
-	}
-
-	getCached(id: string): Maybe<Song> {
-		return this.#cache.get(id);
 	}
 
 	async restoreState(): Promise<void> {
@@ -244,13 +220,13 @@ export abstract class MusicService<
 	abstract handleSearchSongs(
 		term: string,
 		offset: number,
-		options?: { signal: AbortSignal },
-	): AsyncGenerator<SearchResult>;
+		options?: { signal?: AbortSignal },
+	): AsyncGenerator<SongPreview<Type> | Song<Type>>;
 	async *searchSongs(
 		term: string,
 		offset = 0,
-		options?: { signal: AbortSignal },
-	): AsyncGenerator<SearchResult> {
+		options?: { signal?: AbortSignal },
+	): AsyncGenerator<SongPreview<Type> | Song<Type>> {
 		this.log("searchSongs");
 		await this.initialize();
 
@@ -263,18 +239,15 @@ export abstract class MusicService<
 		);
 		if (!results) return;
 
-		for await (const result of results) {
-			yield result;
-		}
+		yield* results;
 	}
 
-	abstract handleGetSongFromSearchResult(searchResult: SearchResult): Song | Promise<Song>;
-	async getSongFromSearchResult(searchResult: SearchResult): Promise<Song> {
+	abstract handleGetSongFromPreview(
+		searchResult: SongPreview<Type>,
+	): Song<Type> | Promise<Song<Type>>;
+	async getSongFromPreview(searchResult: SongPreview<Type>): Promise<Song<Type>> {
 		this.log("getSongFromSearchResult");
-		return await this.withUnrecoverableErrorHandling(
-			this.handleGetSongFromSearchResult,
-			searchResult,
-		);
+		return await this.withUnrecoverableErrorHandling(this.handleGetSongFromPreview, searchResult);
 	}
 
 	abstract handleSearchHints(term: string): string[] | Promise<string[]>;
@@ -284,23 +257,83 @@ export abstract class MusicService<
 		return await this.withErrorHandling([], this.handleSearchHints, term);
 	}
 
-	abstract handleLibrarySongs(offset: number): Song[] | Promise<Song[]>;
-	async librarySongs(offset = 0): Promise<Song[]> {
+	handleGetLibrarySongs?(offset: number): AsyncGenerator<Song<Type>>;
+	async *getLibrarySongs(offset = 0): AsyncGenerator<Song<Type>> {
 		this.log("librarySongs");
+		if (!this.handleGetLibrarySongs) return;
+
 		await this.initialize();
-		const songs = await this.withErrorHandling([], this.handleLibrarySongs, offset);
-		songs.map((song) => this.metadata.applyMetadata(song));
+		const songs = await this.withErrorHandling(undefined!, this.handleGetLibrarySongs, offset);
+
+		for await (const song of songs) {
+			yield this.metadata.applyMetadata(song);
+		}
+
 		return songs;
 	}
 
-	abstract handleRefreshLibrarySongs(): void | Promise<void>;
+	handleRefreshLibrarySongs?(): void | Promise<void>;
 	async refreshLibrarySongs(): Promise<void> {
-		this.log("refresh");
+		this.log("refreshLibrarySongs");
+		if (!this.handleRefreshLibrarySongs) {
+			throw new Error("This service does not support refreshLibrarySongs");
+		}
 		await this.withErrorHandling(undefined, this.handleRefreshLibrarySongs);
+
+		const localImages = useLocalImages();
+		localImages.deduplicate();
+	}
+
+	handleGetLibraryAlbums?(options?: { signal?: AbortSignal }): AsyncGenerator<AlbumPreview>;
+	async *getLibraryAlbums(options?: { signal?: AbortSignal }): AsyncGenerator<AlbumPreview> {
+		this.log("getLibraryAlbums");
+		if (!this.handleGetLibraryAlbums) {
+			throw new Error("This service does not support getLibraryAlbums");
+		}
+
+		const albums = await this.withErrorHandling(undefined!, this.handleGetLibraryAlbums, options);
+		if (!albums) return;
+
+		yield* albums;
+	}
+
+	handleRefreshLibraryAlbums?(): void | Promise<void>;
+	async refreshLibraryAlbums(): Promise<void> {
+		this.log("refreshLibraryAlbums");
+		if (!this.handleRefreshLibraryAlbums) {
+			throw new Error("This service does not support refreshLibraryAlbums");
+		}
+
+		await this.withErrorHandling(undefined!, this.handleRefreshLibraryAlbums);
+	}
+
+	handleGetSongsAlbum?(song: Song<Type>): Maybe<Album<Type>> | Promise<Maybe<Album<Type>>>;
+	async getSongsAlbum(song: Song<Type>): Promise<Maybe<Album<Type>>> {
+		this.log("getSongsAlbum");
+		if (!this.handleGetSongsAlbum) {
+			throw new Error("This service does not support getSongsAlbum");
+		}
+
+		const album = await this.withErrorHandling(undefined, this.handleGetSongsAlbum, song);
+		return album;
+	}
+
+	handleGetAlbum?(id: string): Maybe<Album> | Promise<Maybe<Album>>;
+	async getAlbum(id: string): Promise<Maybe<Album>> {
+		this.log("getAlbum");
+		await this.initialize();
+
+		if (!this.handleGetAlbum) {
+			throw new Error("This service does not support getAlbum");
+		}
+
+		const album = await this.withErrorHandling(undefined, this.handleGetAlbum, id);
+		return album;
 	}
 
 	handleGetPlaylist?(url: URL): Maybe<Playlist> | Promise<Maybe<Playlist>>;
 	async getPlaylist(url: URL): Promise<Maybe<Playlist>> {
+		this.log("getPlaylist");
 		if (!this.handleGetPlaylist) {
 			throw new Error("This service does not support getPlaylist");
 		}
@@ -309,8 +342,19 @@ export abstract class MusicService<
 		return playlist;
 	}
 
-	abstract handleGetSong(songId: string): Maybe<Song> | Promise<Maybe<Song>>;
-	async getSong(songId: string): Promise<Maybe<Song>> {
+	handleGetArtist?(id: string): Maybe<Artist<Type>> | Promise<Maybe<Artist<Type>>>;
+	async getArtist(id: string): Promise<Maybe<Artist<Type>>> {
+		this.log("getArtist");
+		if (!this.handleGetArtist) {
+			throw new Error("This service does not support getArtist");
+		}
+
+		const artist = await this.withErrorHandling(undefined, this.handleGetArtist, id);
+		return artist;
+	}
+
+	abstract handleGetSong(songId: string): Maybe<Song<Type>> | Promise<Maybe<Song<Type>>>;
+	async getSong(songId: string): Promise<Maybe<Song<Type>>> {
 		this.log("getSong");
 		await this.initialize();
 
@@ -321,9 +365,9 @@ export abstract class MusicService<
 		}
 	}
 
-	abstract handleRefreshSong(song: Song): Maybe<Song> | Promise<Maybe<Song>>;
-	async refreshSong(song: Song): Promise<Maybe<Song>> {
-		this.log("getSong");
+	abstract handleRefreshSong(song: Song<Type>): Maybe<Song<Type>> | Promise<Maybe<Song<Type>>>;
+	async refreshSong(song: Song<Type>): Promise<Maybe<Song<Type>>> {
+		this.log("refreshSong");
 		await this.initialize();
 
 		const refreshed = await this.withErrorHandling(undefined, this.handleRefreshSong, song);
@@ -342,7 +386,7 @@ export abstract class MusicService<
 		return refreshed;
 	}
 
-	async changeSong(song: Song): Promise<void> {
+	async changeSong(song: Song<Type>): Promise<void> {
 		this.log("changeSong");
 		if (this.song === song) return;
 

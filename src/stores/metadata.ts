@@ -1,14 +1,11 @@
-import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval";
+import { useIDBKeyval } from "@vueuse/integrations/useIDBKeyval.mjs";
 import { defineStore } from "pinia";
 import { toRaw } from "vue";
 
-import { AnySong, Song } from "@/stores/music-player";
-
+import { Song, SongType } from "@/services/Music/objects";
 import { Maybe } from "@/utils/types";
 
-type MetadataOverride = {
-	[key in Exclude<keyof AnySong, "id" | "type">]?: AnySong[key];
-};
+export type MetadataOverride = Omit<Song, "id" | "type" | "kind" | "data" | "available">;
 
 export const useSongMetadata = defineStore("SongMetadata", () => {
 	const overrides = useIDBKeyval<Record<string, Maybe<MetadataOverride>>>("metadataOverrides", {});
@@ -21,11 +18,11 @@ export const useSongMetadata = defineStore("SongMetadata", () => {
 		overrides.data.value[id] = toRaw(metadata);
 	}
 
-	function applyMetadata<T extends Song<string> = AnySong>(
-		song: T,
+	function applyMetadata<Type extends SongType>(
+		song: Song<Type>,
 		metadata = getSongMetadata(song.id),
-	): T {
-		return Object.assign(song, metadata satisfies Maybe<Partial<AnySong>>);
+	): Song<Type> {
+		return Object.assign(song, metadata satisfies Maybe<Partial<Song>>);
 	}
 
 	return {

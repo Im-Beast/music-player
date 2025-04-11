@@ -50,4 +50,22 @@ ion-tabs:has(~ ion-modal[id^="ion-overlay"]) {
 		height: 100vh;
 	}
 }
+
+@keyframes fade-in {
+	from {
+		opacity: 0%;
+	}
+
+	40% {
+		opacity: 0%;
+	}
+
+	to {
+		opacity: 100%;
+	}
+}
+
+ion-app {
+	animation: fade-in 400ms forwards;
+}
 </style>

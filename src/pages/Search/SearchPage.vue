@@ -20,18 +20,20 @@ import {
 } from "ionicons/icons";
 import { ref } from "vue";
 
-import type { SongSearchResult } from "@/services/Music/MusicService";
-import { AnySong, useMusicPlayer } from "@/stores/music-player";
+import { useMusicPlayer } from "@/stores/music-player";
 
 import AppPage from "@/components/AppPage.vue";
 import GenericSongItem from "@/components/GenericSongItem.vue";
 import SkeletonItem from "@/components/SkeletonItem.vue";
+import { Song, SongPreview } from "@/services/Music/objects";
 
 const musicPlayer = useMusicPlayer();
 
 const searchTerm = ref("");
 const searchSuggestions = ref<string[]>([]);
-const searchResults = ref<SongSearchResult[]>([]);
+
+type SearchResult = SongPreview | Song;
+const searchResults = ref<SearchResult[]>([]);
 
 const offset = ref(0);
 const searched = ref(false);
@@ -79,23 +81,23 @@ async function loadMoreContent(event: InfiniteScrollCustomEvent): Promise<void> 
 	await event.target.complete();
 }
 
-async function playNow(searchResult: SongSearchResult<AnySong>): Promise<void> {
-	const song = await musicPlayer.services.getSongFromSearchResult(searchResult);
+async function playNow(searchResult: SearchResult): Promise<void> {
+	const song = await musicPlayer.services.retrieveSong(searchResult);
 	await musicPlayer.state.addToQueue(song, musicPlayer.state.queueIndex);
 }
 
-async function playNext(searchResult: SongSearchResult<AnySong>): Promise<void> {
-	const song = await musicPlayer.services.getSongFromSearchResult(searchResult);
+async function playNext(searchResult: SearchResult): Promise<void> {
+	const song = await musicPlayer.services.retrieveSong(searchResult);
 	await musicPlayer.state.addToQueue(song, musicPlayer.state.queueIndex + 1);
 }
 
-async function addToQueue(searchResult: SongSearchResult<AnySong>): Promise<void> {
-	const song = await musicPlayer.services.getSongFromSearchResult(searchResult);
+async function addToQueue(searchResult: SearchResult): Promise<void> {
+	const song = await musicPlayer.services.retrieveSong(searchResult);
 	await musicPlayer.state.addToQueue(song);
 }
 
 const router = useIonRouter();
-function goToSong(searchResult: SongSearchResult): void {
+function goToSong(searchResult: SearchResult): void {
 	if (!searchResult) return;
 	router.push(`/library/songs/${searchResult.type}/${searchResult.id}`);
 }

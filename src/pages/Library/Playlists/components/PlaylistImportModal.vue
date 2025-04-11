@@ -25,7 +25,8 @@ import {
 } from "@ionic/vue";
 
 import GenericSongItem from "@/components/GenericSongItem.vue";
-import { Playlist, useMusicPlayer } from "@/stores/music-player";
+import { filledPlaylist, Playlist } from "@/services/Music/objects";
+import { useMusicPlayer } from "@/stores/music-player";
 import { songTypeToDisplayName } from "@/utils/songs";
 import { usePresentingElement } from "@/utils/vue";
 
@@ -38,6 +39,7 @@ const presentingElement = usePresentingElement();
 const serviceType = ref();
 const url = ref();
 const playlist = ref<Playlist>();
+const playlistFilled = computed(() => playlist.value && filledPlaylist(playlist.value));
 const loading = ref(false);
 
 const canLoad = computed(() => serviceType.value && url.value && !loading.value);
@@ -177,15 +179,15 @@ async function canDismiss(data?: "importedPlaylist"): Promise<boolean> {
 				<h1>{{ playlist.title }}</h1>
 
 				<ion-note v-if="playlist.songs.length === 0">This playlist has no songs!</ion-note>
-				<template v-else>
+				<template v-else-if="playlistFilled">
 					<h2>
 						{{ playlist.songs.length }} songs,
-						{{ Math.round(playlist.songs.reduce((a, b) => a + (b.duration ?? 0), 0) / 60) }} minutes
+						{{ Math.round(playlistFilled.songs.reduce((a, b) => a + (b.duration ?? 0), 0) / 60) }} minutes
 					</h2>
 
 					<ion-list>
 						<GenericSongItem
-							v-for="song in playlist.songs"
+							v-for="song in playlistFilled.songs"
 							:key="song.id"
 							:title="song.title"
 							:artists="song.artists"
@@ -214,7 +216,7 @@ async function canDismiss(data?: "importedPlaylist"): Promise<boolean> {
 		margin-top: 0;
 	}
 
-	& > .song-img {
+	& > .local-img {
 		margin-inline: auto;
 
 		--img-height: 192px;

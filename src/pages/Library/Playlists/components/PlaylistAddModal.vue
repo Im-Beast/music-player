@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed, ref, toRaw, useTemplateRef } from "vue";
 
-import SongImagePicker from "@/components/SongImagePicker.vue";
+import LocalImagePicker from "@/components/LocalImagePicker.vue";
 import {
 	actionSheetController,
 	IonButton,
@@ -45,6 +45,9 @@ function create(): void {
 
 	musicPlayer.state.addPlaylist({
 		id: playlistId.value,
+		kind: "playlist",
+		type: "unimusic",
+
 		title: playlistTitle.value,
 		artwork: toRaw(artwork.value),
 		songs: [],
@@ -103,7 +106,7 @@ async function canDismiss(reason?: "createdPlaylist"): Promise<boolean> {
 		</ion-header>
 
 		<ion-content id="add-playlist-content" :fullscreen="true">
-			<SongImagePicker :id="playlistId" @input="artwork = $event.value" />
+			<LocalImagePicker :id="playlistId" @input="artwork = $event.value" />
 
 			<ion-list>
 				<ion-item>
@@ -140,7 +143,7 @@ async function canDismiss(reason?: "createdPlaylist"): Promise<boolean> {
 			var(--ion-color-step-250, var(--ion-background-color-step-250, #c8c7cc));
 	}
 
-	& > .song-img {
+	& > .local-img {
 		margin-inline: auto;
 
 		--shadow-color: rgba(var(--ion-color-dark-rgb), 0.1);

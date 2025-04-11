@@ -1,21 +1,49 @@
-import Fuse from "fuse.js";
-import { parseBuffer, selectCover } from "music-metadata";
+import { toRaw } from "vue";
+
+import Fuse, { FuseResult } from "fuse.js";
+import { parseWebStream, selectCover } from "music-metadata";
 
 import LocalMusic from "@/plugins/LocalMusicPlugin";
+import { Capacitor } from "@capacitor/core";
 
 import { LocalImage, useLocalImages } from "@/stores/local-images";
-import { LocalSong } from "@/stores/music-player";
 
 import { MusicService, MusicServiceEvent } from "@/services/Music/MusicService";
 
 import { base64StringToBuffer } from "@/utils/buffer";
+import { generateHash, generateUUID } from "@/utils/crypto";
 import { getPlatform } from "@/utils/os";
 import { audioMimeTypeFromPath } from "@/utils/path";
 import { generateSongStyle } from "@/utils/songs";
 import { Maybe } from "@/utils/types";
-import { useIDBKeyvalAsync } from "@/utils/vue";
+import {
+	Album,
+	AlbumSong,
+	Artist,
+	ArtistKey,
+	ArtistPreview,
+	cache,
+	filledArtistPreview,
+	generateCacheMethod,
+	getAllCached,
+	getKey,
+	removeFromCache,
+	Song,
+	SongPreview,
+} from "./objects";
 
-const localSongs = useIDBKeyvalAsync<LocalSong[]>("localMusicSongs", []);
+const getCached = generateCacheMethod("local");
+
+type LocalAlbum = Album<"local">;
+type LocalAlbumSong = AlbumSong<"local">;
+type _LocalArtist = Artist<"local">;
+type LocalArtistPreview<Full extends boolean = boolean> = ArtistPreview<"local", Full>;
+type _LocalArtistKey = ArtistKey<"local">;
+type LocalSong = Song<"local">;
+type LocalSongPreview = SongPreview<"local">;
+
+// const localSongs = useIDBKeyval<LocalSong[]>("localMusicSongs", []);
+// const albums = useIDBKeyval<LocalAlbum[]>("localAlbums", []);
 
 async function* getSongPaths(): AsyncGenerator<{ filePath: string; id?: string }> {
 	switch (getPlatform()) {
@@ -68,45 +96,73 @@ async function* traverseDirectory(path: string): AsyncGenerator<{ filePath: stri
 	}
 }
 
-async function readSongFile(path: string): Promise<Uint8Array> {
+async function getFileStream(path: string): Promise<ReadableStream<Uint8Array>> {
 	switch (getPlatform()) {
+		case "electron": {
+			const buffer = await ElectronMusicPlayer!.readFile(path);
+			const stream = new ReadableStream({
+				start(controller): void {
+					controller.enqueue(buffer);
+					controller.close();
+				},
+			});
+			return stream;
+		}
+		// TODO: Stream data on Android?
 		case "android": {
 			const { data } = await LocalMusic.readSong({ path });
 			const buffer = base64StringToBuffer(data);
-			return buffer;
-		}
-		case "electron": {
-			const buffer = await ElectronMusicPlayer!.readFile(path);
-			return buffer;
+			const stream = new ReadableStream({
+				start(controller): void {
+					controller.enqueue(buffer);
+					controller.close();
+				},
+			});
+			return stream;
 		}
 		default: {
 			const { Filesystem, Directory } = await import("@capacitor/filesystem");
 
-			const { data } = await Filesystem.readFile({
-				path,
+			const { uri } = await Filesystem.getUri({
+				path: path,
 				directory: Directory.Documents,
 			});
-
-			if (data instanceof Blob) return await data.bytes();
-			const buffer = base64StringToBuffer(data);
-			return buffer;
+			const fileSrc = Capacitor.convertFileSrc(uri);
+			const response = await fetch(fileSrc);
+			if (!response.body) {
+				throw new Error(`Failed retrieving file stream for ${path}: body is empty.`);
+			}
+			return response.body;
 		}
 	}
 }
 
-async function parseLocalSong(buffer: Uint8Array, path: string, id: string): Promise<LocalSong> {
-	const metadata = await parseBuffer(buffer, {
+async function parseLocalSong(path: string, id: string): Promise<LocalSong> {
+	const stream = await getFileStream(path);
+
+	const metadata = await parseWebStream(stream, {
 		path,
 		mimeType: audioMimeTypeFromPath(path),
 	});
 
 	const { common, format } = metadata;
 
-	const artists = common.artists ?? [];
+	const artists: LocalArtistPreview[] = [];
+	if (common.artists?.length) {
+		for (let i = 0; i < common.artists.length; ++i) {
+			const title = common.artists[i]!;
+			const id = common.musicbrainz_artistid?.[i];
+			artists.push({ id, title });
+		}
+	}
+
 	const album = common.album;
 	const title = common.title ?? path.split("\\").pop()!.split("/").pop();
 	const duration = format.duration;
 	const genres = common.genre ?? [];
+
+	const discNumber = common.disk.no ?? undefined;
+	const trackNumber = common.track.no ?? undefined;
 
 	const coverImage = selectCover(common.picture);
 	let artwork: Maybe<LocalImage>;
@@ -123,6 +179,12 @@ async function parseLocalSong(buffer: Uint8Array, path: string, id: string): Pro
 
 	return {
 		type: "local",
+		kind: "song",
+
+		// TODO: Check if format is supported
+		available: true,
+		// TODO: Try to find a way to classify local files as explicit
+		explicit: false,
 
 		id,
 		artists,
@@ -134,17 +196,24 @@ async function parseLocalSong(buffer: Uint8Array, path: string, id: string): Pro
 		artwork,
 		style: await generateSongStyle(artwork),
 
-		data: { path },
+		data: {
+			path,
+			discNumber,
+			trackNumber,
+		},
 	};
 }
 
-async function getLocalSongs(clearCache = false): Promise<LocalSong[]> {
-	const songs = await localSongs;
+async function* getLocalSongs(clearCache = false): AsyncGenerator<LocalSong> {
+	const localSongs = getAllCached<LocalSong>("local", "song").toArray();
 
 	if (clearCache) {
-		songs.value = [];
-	} else if (songs.value.length) {
-		return songs.value;
+		for (const song of localSongs) {
+			removeFromCache(song);
+		}
+	} else if (localSongs.length) {
+		yield* localSongs;
+		return;
 	}
 
 	// Required for Documents folder to show up in Files
@@ -172,18 +241,21 @@ async function getLocalSongs(clearCache = false): Promise<LocalSong[]> {
 			// and content paths don't have an extension
 			if (getPlatform() !== "android" && !audioMimeTypeFromPath(filePath)) continue;
 
-			const data = await readSongFile(filePath);
-			const song = await parseLocalSong(data, filePath, id ?? filePath);
-			songs.value.push(song);
+			// Instead of generating UUID and then managing the proper song object
+			// We use hashed filePath as an alternative id.
+			// We have to hash it to prevent clashing with routes when used as a route parameter.
+			const fileId = id ?? String(generateHash(filePath));
+
+			const song = await parseLocalSong(filePath, fileId);
+			cache(song);
+			yield song;
 		}
 	} catch (error) {
 		console.log("Errored on getSongs:", error instanceof Error ? error.message : error);
 	}
-
-	return songs.value;
 }
 
-export class LocalMusicService extends MusicService<LocalSong> {
+export class LocalMusicService extends MusicService<"local"> {
 	logName = "LocalMusicService";
 	logColor = "#ddd480";
 	type = "local" as const;
@@ -193,67 +265,6 @@ export class LocalMusicService extends MusicService<LocalSong> {
 
 	constructor() {
 		super();
-	}
-
-	handleSearchHints(_term: string): string[] {
-		return [];
-	}
-
-	#fuse?: Fuse<LocalSong>;
-	async *handleSearchSongs(
-		term: string,
-		offset: number,
-		options?: { signal: AbortSignal },
-	): AsyncGenerator<LocalSong> {
-		// TODO: Maybe split results in smaller chunks and actually paginate it?
-		if (offset > 0) {
-			return;
-		}
-
-		if (!this.#fuse) {
-			const allSongs = await getLocalSongs();
-
-			// TODO: This might require some messing around with distance/threshold settings to not make it excessively loose
-			this.#fuse = new Fuse(allSongs, {
-				keys: ["title", "artists", "album", "genres"] satisfies (keyof LocalSong)[],
-			});
-		}
-
-		const results = this.#fuse.search(term);
-		for (const { item } of results) {
-			if (options?.signal?.aborted) {
-				return;
-			}
-
-			yield item;
-		}
-	}
-
-	handleGetSongFromSearchResult(searchResult: LocalSong): LocalSong {
-		return searchResult;
-	}
-
-	async handleLibrarySongs(_offset: number): Promise<LocalSong[]> {
-		// TODO: Just like search, maybe paginate?
-		return getLocalSongs();
-	}
-
-	async handleRefreshLibrarySongs(): Promise<void> {
-		this.#fuse = undefined;
-		await getLocalSongs(true);
-	}
-
-	async handleGetSong(filePath: string): Promise<LocalSong> {
-		const data = await readSongFile(filePath);
-		const song = await parseLocalSong(data, filePath, filePath);
-		return song;
-	}
-
-	async handleRefreshSong(song: LocalSong): Promise<LocalSong> {
-		const filePath = song.data.path;
-		const data = await readSongFile(filePath);
-		const refreshed = await parseLocalSong(data, filePath, song.id ?? filePath);
-		return refreshed;
 	}
 
 	handleInitialization(): void {
@@ -274,9 +285,175 @@ export class LocalMusicService extends MusicService<LocalSong> {
 
 	handleDeinitialization(): void {}
 
+	handleSearchHints(_term: string): string[] {
+		return [];
+	}
+
+	handleGetSongsAlbum(song: LocalSong): Maybe<LocalAlbum> {
+		const songKey = getKey(song);
+		return getAllCached<LocalAlbum>("local", "album").find(({ songs }) =>
+			songs.some((albumSong) => albumSong.song === songKey),
+		);
+	}
+
+	handleGetAlbum(albumId: string): Maybe<LocalAlbum> {
+		return getAllCached<LocalAlbum>("local", "album").find(({ id }) => id === albumId);
+	}
+
+	#fuse?: Fuse<LocalSong>;
+	#search = {
+		term: "",
+		pages: [] as Maybe<FuseResult<LocalSong>[]>[],
+	};
+	async *handleSearchSongs(
+		term: string,
+		offset: number,
+		options?: { signal: AbortSignal },
+	): AsyncGenerator<LocalSong> {
+		if (!this.#fuse) {
+			const allSongs = await Array.fromAsync(getLocalSongs());
+			// TODO: This might require some messing around with distance/threshold settings to not make it excessively loose
+			this.#fuse = new Fuse(allSongs, {
+				keys: ["title", "artists", "album", "genres"] satisfies (keyof LocalSong)[],
+			});
+		}
+
+		if (term === this.#search.term) {
+			const page = this.#search.pages[offset];
+			if (!page) return;
+
+			for (const { item } of page) {
+				if (options?.signal?.aborted) return;
+				yield item;
+			}
+			return;
+		}
+
+		const results = this.#fuse.search(term);
+		const pages = Object.values(Object.groupBy(results, (_, index) => Math.floor(index / 25)));
+		this.#search.pages = pages;
+
+		for (const { item } of pages[0] ?? []) {
+			if (options?.signal?.aborted) return;
+			yield item;
+		}
+	}
+
+	handleGetSongFromPreview(searchResult: LocalSongPreview): LocalSong {
+		return searchResult as unknown as LocalSong;
+	}
+
+	async *handleGetLibraryAlbums(options?: { signal?: AbortSignal }): AsyncGenerator<LocalAlbum> {
+		let iterator = getAllCached<LocalAlbum>("local", "album");
+		const first = iterator.next();
+		if (first.done) {
+			await this.refreshLibraryAlbums();
+			iterator = getAllCached<LocalAlbum>("local", "album");
+		} else {
+			yield first.value;
+		}
+
+		for (const album of iterator) {
+			if (options?.signal?.aborted) return;
+			yield album;
+		}
+	}
+
+	handleRefreshLibraryAlbums(): void {
+		// First we cleanup songs from albums, in case some were removed
+		// This also allows us to then remove albums that are empty
+		const localAlbums = getAllCached<LocalAlbum>("local", "album").toArray();
+
+		for (const album of localAlbums) {
+			album.songs.length = 0;
+		}
+
+		for (const song of getAllCached<LocalSong>("local", "song")) {
+			if (!song.album) continue;
+
+			const discSong: LocalAlbumSong = {
+				song: getKey(song),
+				discNumber: song.data.discNumber,
+				trackNumber: song.data.trackNumber,
+			};
+
+			// Find all albums that match the songs album title and has at least 1 shared artist
+			const possibleAlbums = localAlbums.filter((album) => {
+				if (album.title !== song.album) return false;
+
+				return album.artists.some((artist) => {
+					const albumArtist = filledArtistPreview(artist);
+					return song.artists.find(
+						(songArtist) => filledArtistPreview(songArtist).title == albumArtist.title,
+					);
+				});
+			});
+
+			// If no such albums exist, create a new one
+			if (!possibleAlbums.length) {
+				const album: LocalAlbum = cache({
+					type: "local",
+					kind: "album",
+					id: generateUUID(),
+					title: song.album,
+					songs: [discSong],
+					artists: toRaw(song.artists),
+					artwork: toRaw(song.artwork),
+				});
+
+				localAlbums.push(album);
+				continue;
+			}
+
+			for (const album of possibleAlbums) {
+				album.songs.push(discSong);
+			}
+		}
+
+		for (const [i, album] of localAlbums.entries()) {
+			// Remove albums with no songs
+			if (album.songs.length === 0) {
+				album.songs.splice(i, 1);
+				continue;
+			}
+
+			// Sort album songs so they match the disc and track order
+			album.songs.sort(
+				(a, b) =>
+					(a.discNumber ?? 0) - (b.discNumber ?? 0) || (a.trackNumber ?? 0) - (b.trackNumber ?? 0),
+			);
+		}
+	}
+
+	async *handleGetLibrarySongs(_offset: number): AsyncGenerator<LocalSong> {
+		// TODO: Just like search, maybe paginate?
+		yield* getLocalSongs();
+	}
+
+	async handleRefreshLibrarySongs(): Promise<void> {
+		this.#fuse = undefined;
+		await Array.fromAsync(getLocalSongs(true));
+	}
+
+	handleGetSong(songId: string): Maybe<LocalSong> {
+		const cached = getCached("song", songId);
+		if (cached) return cached;
+
+		const song = getAllCached<LocalSong>("local", "song").find((song) => song.id === songId);
+		return song && cache(song);
+	}
+
+	async handleRefreshSong(song: LocalSong): Promise<LocalSong> {
+		const filePath = song.data.path;
+		const refreshed = await parseLocalSong(filePath, song.id);
+		return cache(refreshed);
+	}
+
 	async handlePlay(): Promise<void> {
 		const { path } = this.song!.data;
-		const buffer = await readSongFile(path);
+
+		const stream = await getFileStream(path);
+		const buffer = await new Response(stream).arrayBuffer();
 		const blob = new Blob([buffer], { type: audioMimeTypeFromPath(path) });
 		const url = URL.createObjectURL(blob);
 

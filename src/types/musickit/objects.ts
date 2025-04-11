@@ -45,63 +45,6 @@ declare global {
 		}
 
 		/**
-		 * A resource object that represents an album.
-		 * @see https://developer.apple.com/documentation/applemusicapi/albums-uib
-		 */
-		interface Albums {
-			/** The identifier for the album. */
-			id: string;
-			/** This value is always albums. */
-			type: "albums";
-			/** The relative location for the album resource. */
-			href: string;
-			/** The attributes for the album. */
-			attributes?: AlbumsAttributes;
-
-			/** The relationships for the album. */
-			relationships?: MusicKit.ResourceRelationships;
-			/** The relationship views for the album. */
-			views?: MusicKit.ResourceViews;
-		}
-
-		interface AlbumsAttributes {
-			/** The name of the primary artist associated with the album. */
-			artistName: string;
-			/** The URL of the artist for this content. */
-			artistUrl?: string;
-			/** The artwork for the album. */
-			artwork: Artwork;
-			/** Indicates the specific audio variant for the album. */
-			audioVariants?: AudioVariant[];
-			/** The Recording Industry Association of America (RIAA) rating of the content. No value means no rating. */
-			contentRating?: ContentRating;
-			/** The copyright text. */
-			copyright?: string;
-			/** The names of the genres associated with the album. */
-			genreNames: string[];
-			/** Indicates whether the album is marked as a compilation. If true, the album is a compilation; otherwise, it's not. */
-			isCompilation: boolean;
-			/** Indicates whether the album is complete. If true, the album is complete; otherwise, it's not. An album is complete if it contains all its tracks and songs. */
-			isComplete: boolean;
-			/** Indicates whether the album contains a single song. */
-			isSingle: boolean;
-			/** The localized name of the album. */
-			name: string;
-			/** When present, this attribute indicates that one or more tracks on the album are available to play with an Apple Music subscription. The value map may be used to initiate playback of available tracks on the album. */
-			playParams?: PlayParameters;
-			/** The name of the record label for the album. */
-			recordLabel?: string;
-			/** The release date of the album, when known, in YYYY-MM-DD or YYYY format. Prerelease content may have an expected release date in the future. */
-			releaseDate?: string;
-			/** The number of tracks for the album. */
-			trackCount: number;
-			/** The Universal Product Code for the album. */
-			upc?: string;
-			/** The URL for sharing the album in Apple Music. */
-			url?: string;
-		}
-
-		/**
 		 * An object that represents play parameters for resources.
 		 * @see https://developer.apple.com/documentation/applemusicapi/playparameters
 		 */
@@ -136,6 +79,33 @@ declare global {
 			 * For example, {w}x{h}bb.jpeg).
 			 */
 			url: string;
+		}
+
+		/**
+		 * A resource object that represents a music genre.
+		 * @see https://developer.apple.com/documentation/applemusicapi/genres
+		 */
+		interface Genres {
+			/** The identifier for the genre. */
+			id: string;
+			/** This value must always be genres. */
+			type: "genres";
+			/** The relative location for the genre resource. */
+			href: string;
+			/** The attributes for the genre. */
+			attributes?: GenresAttributes;
+		}
+
+		/** The attributes for a genre resource. */
+		interface GenresAttributes {
+			/** The localized name of the genre. */
+			name: string;
+			/** The identifier of the parent for the genre. */
+			parentId?: string;
+			/** The localized name of the parent genre. */
+			parentName?: string;
+			/** (Extended) A localized string to use when displaying the genre in relation to charts. */
+			chartLabel?: string;
 		}
 
 		/**
@@ -208,67 +178,6 @@ declare global {
 		}
 
 		type PlaylistType = "editorial" | "external" | "personal-mix" | "replay" | "user-shared";
-
-		/**
-		 * A resource object that represents a song.
-		 * @see https://developer.apple.com/documentation/applemusicapi/songs-um8
-		 */
-		interface Songs {
-			/** The identifier for the song. */
-			id: string;
-			/** This value is always songs. */
-			type: "songs";
-			/** The relative location for the album resource. */
-			href: string;
-			/** The attributes for the playlist. */
-			attributes?: SongsAttributes;
-
-			/** The relationships for the album. */
-			relationships?: MusicKit.ResourceRelationships;
-		}
-
-		/**
-		 * The attributes for a song resource.
-		 * @see https://developer.apple.com/documentation/applemusicapi/songs/attributes
-		 */
-		interface SongsAttributes {
-			/** The name of the album the song appears on. */
-			albumName: string;
-			/** The artist’s name. */
-			artistName: string;
-			/** The URL of the artist for the content. */
-			artistUrl?: string;
-			/** The album artwork. */
-			artwork: Artwork;
-			/** Indicates the specific audio variant for a song. */
-			audioVariants?: AudioVariant[];
-			/** The song’s composer. */
-			composerName?: string;
-			/** The Recording Industry Association of America (RIAA) rating of the content. No value means no rating. */
-			contentRating?: ContentRating;
-			/** The disc number of the album the song appears on. */
-			discNumber?: number;
-			/** The duration of the song in milliseconds. */
-			durationInMillis: number;
-			/** The genre names the song is associated with. */
-			genreNames: string[];
-			/** Indicates whether the song has lyrics available in the Apple Music catalog. If true, the song has lyrics available; otherwise, it doesn't. */
-			hasLyrics: boolean;
-			/** The International Standard Recording Code (ISRC) for the song. */
-			isrc?: string;
-			/** The localized name of the song. */
-			name: string;
-			/** When present, this attribute indicates that the song is available to play with an Apple Music subscription. The value map may be used to initiate playback. Previews of the song audio may be available with or without an Apple Music subscription. */
-			playParams?: PlayParameters;
-			/** The preview assets for the song. */
-			previews: Preview[];
-			/** The release date of the song, when known, in YYYY-MM-DD or YYYY format. Prerelease songs may have an expected release date in the future. */
-			releaseDate?: string;
-			/** The number of the song in the album’s track list. */
-			trackNumber?: string;
-			/** The URL for sharing the song in Apple Music.  */
-			url: string;
-		}
 	}
 }
 

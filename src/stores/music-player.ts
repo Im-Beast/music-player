@@ -1,55 +1,16 @@
 import { defineStore, storeToRefs } from "pinia";
 import { computed, watch } from "vue";
 
-import { LocalImage, useLocalImages } from "@/stores/local-images";
+import { useLocalImages } from "@/stores/local-images";
 import { useMusicServices } from "@/stores/music-services";
 import { useMusicPlayerState } from "@/stores/music-state";
 
 import type { MusicService } from "@/services/Music/MusicService";
 
+import { filledArtistPreview } from "@/services/Music/objects";
 import { getPlatform } from "@/utils/os";
 import { formatArtists } from "@/utils/songs";
 import { Maybe } from "@/utils/types";
-
-export interface Song<Type extends string, Data = unknown> {
-	type: Type;
-
-	id: string;
-
-	artists: string[];
-	genres: string[];
-
-	title?: string;
-	album?: string;
-	duration?: number;
-
-	artwork?: LocalImage;
-	style: {
-		fgColor: string;
-		bgColor: string;
-		bgGradient: string;
-	};
-
-	data: Data;
-}
-
-export type MusicKitSong = Song<"musickit">;
-export type YouTubeSong = Song<"youtube">;
-export type LocalSong = Song<"local", { path: string }>;
-
-export type AnySong = MusicKitSong | YouTubeSong | LocalSong;
-
-export interface Playlist {
-	id: string;
-	importInfo?: {
-		id: string;
-		type: AnySong["type"];
-		info?: string;
-	};
-	title: string;
-	artwork?: LocalImage;
-	songs: AnySong[];
-}
 
 export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	const localImages = useLocalImages();
@@ -71,7 +32,6 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 	});
 
 	// Automatically change songs
-
 	let abortController = new AbortController();
 	watch(currentQueueSong, async () => {
 		abortController.abort();
@@ -162,7 +122,7 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 						hasSkipForward: false,
 
 						track: currentSong?.title ?? "",
-						artist: formatArtists(currentSong?.artists),
+						artist: formatArtists(currentSong?.artists?.map(filledArtistPreview)),
 						album: currentSong?.album ?? "",
 
 						// FIXME: Local artworks
@@ -236,7 +196,7 @@ export const useMusicPlayer = defineStore("MusicPlayer", () => {
 
 			navigator.mediaSession.metadata = new window.MediaMetadata({
 				title: song.title,
-				artist: formatArtists(song.artists),
+				artist: formatArtists(song.artists.map(filledArtistPreview)),
 				album: song.album,
 				artwork: typeof artworkUrl === "string" ? [{ src: artworkUrl }] : undefined,
 			});

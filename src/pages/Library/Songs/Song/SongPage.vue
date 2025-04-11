@@ -8,11 +8,12 @@ import { pencil as editIcon, play as playIcon } from "ionicons/icons";
 
 import AppPage from "@/components/AppPage.vue";
 import LocalImg from "@/components/LocalImg.vue";
+import WrappingMarquee from "@/components/WrappingMarquee.vue";
 import SongEditModal, { SongEditEvent } from "../components/SongEditModal.vue";
 
-import WrappingMarquee from "@/components/WrappingMarquee.vue";
+import { filledSong, SongType } from "@/services/Music/objects";
 import { useSongMetadata } from "@/stores/metadata";
-import { AnySong, useMusicPlayer } from "@/stores/music-player";
+import { useMusicPlayer } from "@/stores/music-player";
 import { formatArtists } from "@/utils/songs";
 
 const musicPlayer = useMusicPlayer();
@@ -26,13 +27,14 @@ const previousRouteName = computed(() => {
 	return String(router.resolve(state.back as any)?.name);
 });
 
-const song = computedAsync(
-	async () =>
-		await musicPlayer.services.getSong(
-			route.params.type as AnySong["type"],
-			route.params.id as string,
-		),
-);
+const song = computedAsync(async () => {
+	const song = await musicPlayer.services.getSong(
+		route.params.songType as SongType,
+		route.params.songId as string,
+	);
+
+	return song && filledSong(song);
+});
 
 const isSingle = computed(() => !!song.value?.album?.includes("- Single"));
 
@@ -52,16 +54,18 @@ async function editSong(event: SongEditEvent): Promise<void> {
 	if (!song.value) return;
 
 	songMetadata.setMetadata(song.value.id, event);
-	song.value = await musicPlayer.services.refreshSong(song.value);
+
+	const refreshed = await musicPlayer.services.refreshSong(song.value);
+	song.value = refreshed && filledSong(refreshed);
 }
 
 async function playNow(): Promise<void> {
-	if (song.value) {
-		if (musicPlayer.state?.currentSong?.id === song.value.id) {
-			await musicPlayer.play();
-		} else {
-			await musicPlayer.state.addToQueue(song.value, musicPlayer.state.queueIndex);
-		}
+	if (!song.value) return;
+
+	if (musicPlayer.state?.currentSong?.id === song.value.id) {
+		await musicPlayer.play();
+	} else {
+		await musicPlayer.state.addToQueue(song.value, musicPlayer.state.queueIndex);
 	}
 }
 </script>
@@ -83,10 +87,15 @@ async function playNow(): Promise<void> {
 			<h1 class="ion-text-nowrap">
 				<WrappingMarquee :text="song.title ?? 'Unknown title'" />
 			</h1>
-			<h2>{{ formatArtists(song.artists) }}</h2>
-			<h3 v-if="!isSingle">{{ song.album }}</h3>
+			<!-- TODO: ARTISTS -->
+			<RouterLink class="artist" :to="`/library`">
+				{{ formatArtists(song.artists) }}
+			</RouterLink>
+			<RouterLink v-if="!isSingle" class="album" :to="`/library/albums/song/${song.type}/${song.id}`">
+				{{ song.album }}
+			</RouterLink>
 
-			<ion-button strong @click="playNow">
+			<ion-button :disabled="!song.available" strong @click="playNow">
 				<ion-icon slot="start" :icon="playIcon" />
 				Play
 			</ion-button>
@@ -118,24 +127,52 @@ async function playNow(): Promise<void> {
 	animation: fade-in 350ms;
 
 	& > h1 {
-		font-weight: 550;
+		font-size: min(2.125rem, 61.2px);
+		font-weight: bold;
+
+		mask-image: linear-gradient(to right, transparent, black 10% 90%, transparent);
+
 		margin-top: 0;
 		margin-bottom: 0.25rem;
-		mask-image: linear-gradient(to right, transparent, black 10% 90%, transparent);
+
 		--marquee-duration: 20s;
 		--marquee-align: center;
 	}
 
-	& > h2 {
-		font-size: 1.25rem;
-		font-weight: bold;
+	& > .artist,
+	& > .album {
+		display: block;
+
+		color: var(--ion-color-dark-rgb);
+		text-decoration: none;
+
+		width: max-content;
+
 		margin-top: 0;
+		margin-bottom: 10px;
+		margin-inline: auto;
+
+		cursor: pointer;
+		&:hover {
+			opacity: 80%;
+
+			@media (pointer: fine) {
+				text-decoration: underline;
+			}
+		}
+		&:active {
+			opacity: 60%;
+		}
 	}
 
-	& > h3 {
+	& > .artist {
+		font-size: 1.25rem;
+		font-weight: 550;
+	}
+
+	& > .album {
 		font-size: 1rem;
 		font-weight: 450;
-		margin-top: 0;
 	}
 
 	& > ion-button {
@@ -148,7 +185,7 @@ async function playNow(): Promise<void> {
 		padding-bottom: 1rem;
 	}
 
-	& > .song-img {
+	& > .local-img {
 		margin-inline: auto;
 
 		--img-height: 192px;

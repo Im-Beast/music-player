@@ -1,4 +1,5 @@
 <script lang="ts">
+import { Filled, Playlist } from "@/services/Music/objects";
 import { LocalImage } from "@/stores/local-images";
 
 export interface PlaylistEditEvent {
@@ -10,7 +11,7 @@ export interface PlaylistEditEvent {
 <script lang="ts" setup>
 import { computed, ref, toRaw, useTemplateRef } from "vue";
 
-import SongImagePicker from "@/components/SongImagePicker.vue";
+import LocalImagePicker from "@/components/LocalImagePicker.vue";
 import {
 	actionSheetController,
 	IonButton,
@@ -25,12 +26,11 @@ import {
 	IonToolbar,
 } from "@ionic/vue";
 
-import { Playlist } from "@/stores/music-player";
 import { usePresentingElement } from "@/utils/vue";
 
 const { trigger, playlist } = defineProps<{
 	trigger: string;
-	playlist: Playlist;
+	playlist: Filled<Playlist>;
 }>();
 const emit = defineEmits<{
 	change: [PlaylistEditEvent];
@@ -101,7 +101,7 @@ async function canDismiss(reason?: "editedPlaylist"): Promise<boolean> {
 		</ion-header>
 
 		<ion-content id="edit-playlist-content" :fullscreen="true">
-			<SongImagePicker :id="playlist.id" @input="((artwork = $event.value), (modified = true))" />
+			<LocalImagePicker :id="playlist.id" @input="((artwork = $event.value), (modified = true))" />
 
 			<ion-list>
 				<ion-item>

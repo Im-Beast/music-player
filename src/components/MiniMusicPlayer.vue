@@ -23,6 +23,7 @@ import LocalImg from "@/components/LocalImg.vue";
 
 import { useMusicPlayer } from "@/stores/music-player";
 
+import { filledArtistPreview } from "@/services/Music/objects";
 import { formatArtists } from "@/utils/songs";
 import { useWillKeyboard } from "@/utils/vue";
 
@@ -34,7 +35,9 @@ const musicPlayer = useMusicPlayer();
 const state = musicPlayer.state;
 const { currentSong, playing } = storeToRefs(state);
 
-const formattedArtists = computed(() => formatArtists(currentSong.value?.artists));
+const formattedArtists = computed(() =>
+	formatArtists(currentSong.value?.artists?.map(filledArtistPreview)),
+);
 
 const contextMenuOpen = ref(false);
 
@@ -142,7 +145,7 @@ ion-tab-bar {
 	--padding-start: 12px;
 	--padding-end: 12px;
 
-	& > .song-img {
+	& > .local-img {
 		transition: var(--context-menu-transition);
 
 		--img-border-radius: 12px;
@@ -221,7 +224,7 @@ ion-tab-bar {
 		visibility: hidden;
 	}
 
-	& > .song-img {
+	& > .local-img {
 		pointer-events: none;
 
 		--img-border-radius: 8px;
