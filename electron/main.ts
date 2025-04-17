@@ -15,6 +15,9 @@ const ALLOWED_URLS = [
 	"https://*.youtube.com",
 	"https://*.googlevideo.com",
 	"https://*.googleapis.com",
+	"https://*.googleusercontent.com",
+	"https://*.mzstatic.com",
+	"https://*.ytimg.com",
 ];
 const ALLOWED_URL_PATTERNS = ALLOWED_URLS.map((url) => new URLPattern(url));
 

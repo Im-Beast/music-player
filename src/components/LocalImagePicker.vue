@@ -36,18 +36,18 @@ async function changeArtwork(): Promise<void> {
 </script>
 
 <template>
-	<div class="song-image-picker">
+	<div class="local-image-picker">
 		<LocalImg :src="image" :alt="`Image picker preview`" @click="imagePicker?.click()" />
 		<input ref="imagePicker" type="file" accept="image/*" @change="changeArtwork" />
 	</div>
 </template>
 
 <style>
-.song-image-picker {
+.local-image-picker {
 	display: flex;
 	justify-content: center;
 
-	& > .song-img {
+	& > .local-img {
 		--img-height: 192px;
 		--img-width: auto;
 

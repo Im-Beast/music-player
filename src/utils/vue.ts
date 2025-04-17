@@ -1,6 +1,6 @@
 import { MaybeRefOrGetter } from "@vueuse/core";
-import { useIDBKeyval, UseIDBOptions } from "@vueuse/integrations/useIDBKeyval";
-import { computed, onMounted, ref, Ref, watch } from "vue";
+import { useIDBKeyval, UseIDBOptions } from "@vueuse/integrations/useIDBKeyval.mjs";
+import { computed, onMounted, ref, Ref, watch, WatchHandle, WatchOptions, WatchSource } from "vue";
 
 export async function useIDBKeyvalAsync<T>(
 	key: IDBValidKey,
@@ -64,6 +64,34 @@ export function useWillKeyboard(): UseWillKeyboard {
 		willBeOpen,
 		unregister,
 	};
+}
+
+export type AsyncWatchCallback<V = any, OV = any> = (
+	value: V,
+	oldValue: OV,
+	onCleanup?: (cleanupFn: () => void) => void,
+) => Promise<any>;
+
+export function watchAsync<T>(
+	sources: WatchSource<T>,
+	cb: AsyncWatchCallback<T, T | undefined>,
+	options?: WatchOptions,
+): WatchHandle {
+	let promise: Promise<unknown>;
+	let resolved = true;
+
+	return watch(
+		sources,
+		(...args) => {
+			if (!resolved) {
+				// Silently kill previous promise
+				void Promise.reject(promise).catch(() => {});
+			}
+			resolved = false;
+			promise = cb(...args).then(() => (resolved = true));
+		},
+		options,
+	);
 }
 
 interface UseLoadingCounter {

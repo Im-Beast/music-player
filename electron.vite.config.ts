@@ -30,6 +30,7 @@ export default {
 		plugins: [vue()],
 		root: ".",
 		build: {
+			sourcemap: "inline",
 			emptyOutDir: false,
 			outDir: "./dist/electron/renderer",
 			rollupOptions: {

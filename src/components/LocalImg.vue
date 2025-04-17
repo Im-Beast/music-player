@@ -13,11 +13,11 @@ const url = computed(() => localImages.getUrl(src));
 </script>
 
 <template>
-	<img :src="url" :alt :class="`song-img ${$props.class ?? ''}`" />
+	<img :src="url" :alt :class="`local-img ${$props.class ?? ''}`" />
 </template>
 
 <style>
-.song-img {
+.local-img {
 	position: relative;
 	border-radius: var(--img-border-radius, inherit);
 	width: var(--img-width, auto);

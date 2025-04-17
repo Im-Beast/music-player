@@ -1,21 +1,17 @@
 <script lang="ts">
-import { LocalImage } from "@/stores/local-images";
+import { DisplayableArtist, filledDisplayableArtist, Song } from "@/services/Music/objects";
+import { MetadataOverride } from "@/stores/metadata";
 import { Maybe } from "@/utils/types";
+import { computedAsync } from "@vueuse/core";
 
-export type SongEditEvent = Maybe<{
-	title?: string;
-	artists: string[];
-	album?: string;
-	artwork?: LocalImage;
-	genres: string[];
-}>;
+export type SongEditEvent = Maybe<MetadataOverride>;
 </script>
 
 <script lang="ts" setup>
 import { computed, ref, toRaw, useTemplateRef } from "vue";
 
+import LocalImagePicker from "@/components/LocalImagePicker.vue";
 import MultiValueInput from "@/components/MultiValueInput.vue";
-import SongImagePicker from "@/components/SongImagePicker.vue";
 import {
 	actionSheetController,
 	IonButton,
@@ -27,17 +23,16 @@ import {
 	IonList,
 	IonModal,
 	IonTitle,
+	IonToggle,
 	IonToolbar,
 } from "@ionic/vue";
 
-import { AnySong } from "@/stores/music-player";
-
-import { formatArtists, formatGenres } from "@/utils/songs";
+import { formatGenres, generateSongStyle } from "@/utils/songs";
 import { usePresentingElement } from "@/utils/vue";
 
 const { trigger, song } = defineProps<{
 	trigger: string;
-	song: AnySong;
+	song: Song;
 }>();
 
 const emit = defineEmits<{
@@ -48,10 +43,17 @@ const modal = useTemplateRef("modal");
 const presentingElement = usePresentingElement();
 
 const title = ref(song.title);
-const artists = ref([...song.artists]);
+const artists = ref([...song.artists.map(filledDisplayableArtist).map(({ title }) => title)]);
 const album = ref(song.album);
+
 const artwork = ref(song.artwork);
+const style = computedAsync(
+	() => (artwork.value === song.artwork ? song.style : generateSongStyle(artwork.value)),
+	song.style,
+);
+
 const genres = ref([...song.genres]);
+const explicit = ref(song.explicit);
 
 const modified = ref(false);
 const canEdit = computed(() => !!title.value && modified.value);
@@ -59,13 +61,18 @@ const canEdit = computed(() => !!title.value && modified.value);
 function edit(): void {
 	if (!canEdit.value) return;
 
-	console.log(artwork.value);
+	const editedArtists: DisplayableArtist[] = artists.value.map((title) => ({
+		title,
+	}));
+
 	emit("change", {
 		title: title.value,
-		artists: toRaw(artists.value),
+		artists: editedArtists,
 		album: album.value,
-		artwork: toRaw(artwork.value),
 		genres: toRaw(genres.value),
+		explicit: explicit.value,
+		artwork: toRaw(artwork.value),
+		style: style.value,
 	});
 
 	dismiss("editedSong");
@@ -139,7 +146,7 @@ async function canDismiss(reason?: "editedSong" | "resetSong"): Promise<boolean>
 		</ion-header>
 
 		<ion-content id="edit-song-content" :fullscreen="true">
-			<SongImagePicker
+			<LocalImagePicker
 				:id="song.id"
 				:id-out="`override-${song.id}`"
 				@input="((artwork = $event.value), (modified = true))"
@@ -159,7 +166,7 @@ async function canDismiss(reason?: "editedSong" | "resetSong"): Promise<boolean>
 				<MultiValueInput
 					label="Artists"
 					:value="artists"
-					:formatter="formatArtists"
+					:formatter="(artists) => artists.join(' & ')"
 					@change="((artists = $event), (modified = true))"
 				/>
 
@@ -173,6 +180,12 @@ async function canDismiss(reason?: "editedSong" | "resetSong"): Promise<boolean>
 					:formatter="formatGenres"
 					@change="((genres = $event), (modified = true))"
 				/>
+
+				<ion-item>
+					<ion-toggle justify="start" v-model="explicit" @ion-change="modified = true">
+						Explicit
+					</ion-toggle>
+				</ion-item>
 			</ion-list>
 		</ion-content>
 	</ion-modal>

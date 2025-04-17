@@ -32,11 +32,14 @@
 					/>
 				</ion-buttons>
 			</ion-item>
+
+			<ion-item button @click="clearCache">CLEAR CACHE</ion-item>
 		</ion-list>
 	</ion-content>
 </template>
 
 <script lang="ts">
+import { clearCache } from "@/services/Music/objects";
 import { songTypeToDisplayName } from "@/utils/songs";
 import AppSettingsModal from "./AppSettingsModal.vue";
 

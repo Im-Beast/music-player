@@ -54,7 +54,9 @@ function handleValueAddition(event: InputCustomEvent): void {
 		event.target.value = "";
 	}
 }
-function handleValueRemoval(): void {
+function handleValueRemoval(event: InputCustomEvent): void {
+	if (event.target.value) return;
+
 	if (markedValue.value) {
 		markedValue.value = undefined;
 		emit("change", [...values]);

@@ -4,6 +4,7 @@ import { computed } from "vue";
 import AppPage from "@/components/AppPage.vue";
 import GenericSongItem from "@/components/GenericSongItem.vue";
 import LocalImg from "@/components/LocalImg.vue";
+import WrappingMarquee from "@/components/WrappingMarquee.vue";
 import PlaylistEditModal, { PlaylistEditEvent } from "../components/PlaylistEditModal.vue";
 
 import {
@@ -11,10 +12,13 @@ import {
 	IonActionSheet,
 	IonButton,
 	IonButtons,
+	IonHeader,
 	IonIcon,
 	IonItem,
 	IonList,
 	IonNote,
+	IonTitle,
+	IonToolbar,
 	useIonRouter,
 } from "@ionic/vue";
 import {
@@ -25,13 +29,17 @@ import {
 	playOutline as playSongNextIcon,
 } from "ionicons/icons";
 
-import { AnySong, useMusicPlayer } from "@/stores/music-player";
+import { filledPlaylist, Song } from "@/services/Music/objects";
+import { useMusicPlayer } from "@/stores/music-player";
 import { useRoute } from "vue-router";
 
 const musicPlayer = useMusicPlayer();
 const route = useRoute();
 
-const playlist = computed(() => musicPlayer.state.getPlaylist(route.params.id as string));
+const playlist = computed(() => {
+	const playlist = musicPlayer.state.getPlaylist(route.params.id as string);
+	return playlist && filledPlaylist(playlist);
+});
 const isEmpty = computed(() => !playlist.value?.songs.length);
 const totalDuration = computed(() => {
 	const songs = playlist?.value?.songs ?? [];
@@ -44,7 +52,7 @@ const deleteActionSheetButtons: ActionSheetButton[] = [
 ];
 
 function play(): void {
-	musicPlayer.state.setQueue(playlist.value!.songs);
+	musicPlayer.state.setQueue(playlist.value!.songs.filter((song) => song.available));
 	musicPlayer.state.queueIndex = 0;
 }
 
@@ -65,25 +73,25 @@ function onDeleteActionDismiss(event: CustomEvent): void {
 
 const router = useIonRouter();
 
-async function playSong(song: AnySong): Promise<void> {
+async function playSong(song: Song): Promise<void> {
 	await musicPlayer.state.addToQueue(song, musicPlayer.state.queueIndex);
 }
 
-async function playSongNext(song: AnySong): Promise<void> {
+async function playSongNext(song: Song): Promise<void> {
 	await musicPlayer.state.addToQueue(song, musicPlayer.state.queueIndex + 1);
 }
 
-async function addSongToQueue(song: AnySong): Promise<void> {
+async function addSongToQueue(song: Song): Promise<void> {
 	await musicPlayer.state.addToQueue(song);
 }
 
-function goToSong(song: AnySong): void {
+function goToSong(song: Song): void {
 	router.push(`/library/songs/${song.type}/${song.id}`);
 }
 </script>
 
 <template>
-	<AppPage back-button="Playlists">
+	<AppPage :title="playlist?.title" :show-content-header="false" back-button="Playlists">
 		<template #toolbar-end>
 			<ion-buttons>
 				<ion-button id="edit-playlist">
@@ -106,11 +114,19 @@ function goToSong(song: AnySong): void {
 
 		<div id="playlist-content" v-if="playlist">
 			<LocalImg :src="playlist.artwork" />
-			<h1>{{ playlist?.title }}</h1>
+
+			<ion-header collapse="condense">
+				<ion-toolbar>
+					<ion-title class="ion-text-nowrap" size="large">
+						<WrappingMarquee :text="playlist.title" />
+					</ion-title>
+				</ion-toolbar>
+			</ion-header>
 
 			<ion-note v-if="isEmpty">This playlist has no songs, fill it up!</ion-note>
 			<template v-else>
 				<h2>{{ playlist.songs.length }} songs, {{ Math.round(totalDuration / 60) }} minutes</h2>
+
 				<ion-button strong @click="play">
 					<ion-icon slot="start" :icon="playIcon" />
 					Play
@@ -119,6 +135,7 @@ function goToSong(song: AnySong): void {
 				<ion-list>
 					<GenericSongItem
 						v-for="song in playlist.songs"
+						:disabled="!song.available"
 						:key="song.id"
 						:title="song.title"
 						:artists="song.artists"
@@ -150,10 +167,24 @@ function goToSong(song: AnySong): void {
 #playlist-content {
 	text-align: center;
 
-	& > h1 {
-		font-weight: bold;
-		margin-top: 0;
-		margin-bottom: 0.25rem;
+	& > ion-header {
+		width: max-content;
+		max-width: 100%;
+		margin-inline: auto;
+
+		& .wrapping {
+			mask-image: linear-gradient(to right, transparent, black 10% 90%, transparent);
+		}
+
+		& ion-title {
+			transform-origin: top center;
+
+			font-weight: bold;
+			margin: 0;
+
+			--marquee-duration: 20s;
+			--marquee-align: center;
+		}
 	}
 
 	& > h2 {
@@ -173,7 +204,7 @@ function goToSong(song: AnySong): void {
 			var(--ion-color-step-250, var(--ion-background-color-step-250, #c8c7cc));
 	}
 
-	& > .song-img {
+	& > .local-img {
 		margin-inline: auto;
 
 		--img-height: 192px;

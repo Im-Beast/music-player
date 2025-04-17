@@ -1,15 +1,29 @@
+import {
+	DisplayableArtist,
+	Filled,
+	filledDisplayableArtist,
+	Song,
+	SongType,
+} from "@/services/Music/objects";
 import { LocalImage, useLocalImages } from "@/stores/local-images";
-import { AnySong } from "@/stores/music-player";
 
-export function formatArtists(artists?: string[]): string {
-	return artists?.join?.(" & ") || "Unknown artist(s)";
+export function formatArtists(artists?: (DisplayableArtist | Filled<DisplayableArtist>)[]): string {
+	if (!artists?.length) {
+		return "Unknown artist(s)";
+	}
+
+	let formatted = filledDisplayableArtist(artists[0]!).title;
+	for (let i = 1; i < artists.length; ++i) {
+		formatted += ` & ${filledDisplayableArtist(artists[i]!).title}`;
+	}
+	return formatted;
 }
 
 export function formatGenres(genres?: string[]): string {
 	return genres?.join(", ") || "Unknown genre(s)";
 }
 
-export function songTypeToDisplayName(type: AnySong["type"]): string {
+export function songTypeToDisplayName(type?: SongType): string {
 	switch (type) {
 		case "local":
 			return "Local";
@@ -17,6 +31,8 @@ export function songTypeToDisplayName(type: AnySong["type"]): string {
 			return "Apple Music";
 		case "youtube":
 			return "YouTube";
+		default:
+			return "Unknown service";
 	}
 }
 
@@ -29,7 +45,7 @@ const intensity = ([r, g, b]: Uint8ClampedArray): number => {
  * @param artworkUrl
  * @returns
  */
-export async function generateSongStyle(artwork?: LocalImage): Promise<AnySong["style"]> {
+export async function generateSongStyle(artwork?: LocalImage): Promise<Song["style"]> {
 	if (!artwork) {
 		return {
 			fgColor: "#ffffff",

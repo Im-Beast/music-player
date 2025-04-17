@@ -6,32 +6,35 @@ import LocalImg from "@/components/LocalImg.vue";
 import { IonIcon, IonItem, IonLabel, IonNote, IonReorder } from "@ionic/vue";
 import { compass as compassIcon, musicalNote as musicalNoteIcon } from "ionicons/icons";
 
-import { LocalImage } from "@/stores/local-images";
-import { AnySong } from "@/stores/music-player";
+import { filledDisplayableArtist, Song } from "@/services/Music/objects";
 import { formatArtists, songTypeToDisplayName } from "@/utils/songs";
+import { secondsToMMSS } from "@/utils/time";
 
 const {
 	button = true,
 	title,
 	type,
 	artists,
+	album,
 	artwork,
+	duration,
 	reorder,
 	disabled,
 	routerLink,
-} = defineProps<{
-	title?: string;
-	type: AnySong["type"];
-	artists: string[];
-	artwork?: LocalImage;
-	reorder?: boolean;
-	button?: boolean;
-	disabled?: boolean;
-	routerLink?: string;
-}>();
+} = defineProps<
+	Pick<Partial<Song>, "type" | "duration" | "album" | "artists" | "artwork" | "title"> & {
+		reorder?: boolean;
+		button?: boolean;
+		disabled?: boolean;
+		routerLink?: string;
+	}
+>();
 
-const formattedArtists = computed(() => formatArtists(artists));
-const displayName = computed(() => songTypeToDisplayName(type));
+const formattedArtists = computed(
+	() => artists && formatArtists(artists?.map(filledDisplayableArtist)),
+);
+const displayName = computed(() => type && songTypeToDisplayName(type));
+const formattedDuration = computed(() => duration && secondsToMMSS(duration));
 
 const emit = defineEmits<{
 	itemClick: [PointerEvent];
@@ -70,14 +73,22 @@ function emitClick(event: PointerEvent): void {
 			<ion-label>
 				<h1>{{ title ?? "Unknown title" }}</h1>
 				<ion-note>
-					<p>
-						<ion-icon :icon="compassIcon" />
-						{{ displayName }}
-					</p>
-					<p>
-						<ion-icon :icon="musicalNoteIcon" />
-						{{ formattedArtists }}
-					</p>
+					<template v-if="artists && type">
+						<p>
+							<ion-icon :icon="compassIcon" />
+							{{ displayName }}
+						</p>
+						<p>
+							<ion-icon :icon="musicalNoteIcon" />
+							{{ formattedArtists }}
+						</p>
+					</template>
+					<template v-else-if="album">
+						{{ album }}
+					</template>
+					<template v-else-if="duration">
+						{{ formattedDuration }}
+					</template>
 				</ion-note>
 			</ion-label>
 
@@ -104,7 +115,7 @@ function emitClick(event: PointerEvent): void {
 	--padding-start: 12px;
 	--padding-end: 12px;
 
-	& > .song-img {
+	& > .local-img {
 		transition: var(--context-menu-transition);
 
 		--img-border-radius: 12px;
@@ -149,12 +160,14 @@ function emitClick(event: PointerEvent): void {
 }
 
 ion-item {
-	& > .song-img {
+	& > .local-img {
 		pointer-events: none;
 
 		--img-border-radius: 8px;
 		--img-width: auto;
 		--img-height: 56px;
+
+		border: 0.55px solid #0002;
 	}
 
 	& > ion-label {

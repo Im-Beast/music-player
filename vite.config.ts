@@ -7,7 +7,7 @@ import capacitorConfig from "./capacitor.config";
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [vue()],
-	build: { outDir: capacitorConfig.webDir },
+	build: { outDir: capacitorConfig.webDir, sourcemap: "inline" },
 	define: {
 		__IS_ELECTRON__: "false",
 	},
