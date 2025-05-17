@@ -1,16 +1,30 @@
 import Capacitor
 import MusicKit
 import UIKit
+import UniMusicSync
 
 class UniMusicViewController: CAPBridgeViewController {
-    var keepWebViewAlive: Timer?
+    private var keepWebViewAlive: Timer?
+    private(set) var uniMusicSync: UniMusicSync?
 
     deinit {
         keepWebViewAlive?.invalidate()
+
+        if let uniMusicSync {
+            Task { try await uniMusicSync.irohManager.shutdown() }
+            self.uniMusicSync = nil
+        }
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        Task {
+            let path = NSTemporaryDirectory()
+            uniMusicSync = try! await UniMusicSync(path)
+            let author = try! await uniMusicSync!.irohManager.getAuthor()
+            print("IROH Author: \(author)")
+        }
 
         // Run Javascript code every 5 seconds to keep WebView alive.
         // This is necessary, since in case user does not interact with WebView in ~20-30s iOS will simply kill it
